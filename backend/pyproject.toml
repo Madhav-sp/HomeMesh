@@ -1,0 +1,16 @@
+[project]
+name = "homemesh-api"
+version = "0.1.0"
+description = "Distributed Personal Home Cloud API"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "pydantic-settings>=2.14.2",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.52.1",
+]
+
+[dependency-groups]
+dev = []
+

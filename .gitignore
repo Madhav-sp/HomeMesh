@@ -1,0 +1,155 @@
+# =========================================================
+# HomeMesh Monorepo
+# =========================================================
+
+#############################
+# OS
+#############################
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+#############################
+# IDE
+#############################
+
+.vscode/
+.idea/
+*.code-workspace
+
+#############################
+# Logs
+#############################
+
+*.log
+logs/
+**/logs/
+
+#############################
+# Environment Variables
+#############################
+
+.env
+.env.*
+!.env.example
+
+#############################
+# Python
+#############################
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+#############################
+# Build Artifacts
+#############################
+
+build/
+dist/
+*.egg-info/
+
+#############################
+# PyInstaller
+#############################
+
+*.spec
+
+#############################
+# Node
+#############################
+
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+#############################
+# Vite
+#############################
+
+frontend/dist/
+
+#############################
+# Testing
+#############################
+
+coverage/
+.coverage/
+
+#############################
+# Database
+#############################
+
+*.db
+*.sqlite
+*.sqlite3
+
+#############################
+# Storage
+#############################
+
+backend/storage/*
+!backend/storage/.gitkeep
+
+agent/storage/*
+!agent/storage/.gitkeep
+
+#############################
+# Runtime Data
+#############################
+
+backend/logs/*
+!backend/logs/.gitkeep
+
+agent/logs/*
+!agent/logs/.gitkeep
+
+#############################
+# Docker
+#############################
+
+docker-data/
+postgres-data/
+redis-data/
+
+#############################
+# Temporary Files
+#############################
+
+tmp/
+temp/
+*.tmp
+
+#############################
+# Archives
+#############################
+
+*.zip
+*.tar
+*.gz
+*.7z
+
+#############################
+# Certificates & Secrets
+#############################
+
+*.pem
+*.key
+*.crt
+*.pfx
+secrets/
