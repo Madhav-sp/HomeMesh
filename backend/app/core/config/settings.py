@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # Application
     app_name: str = "HomeMesh API"
     app_version: str = "0.1.0"
     app_env: str = "development"
@@ -11,6 +12,13 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
+    # Database
+    database_url: str
+
+    # Redis
+    redis_url: str
+
+    # Logging
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
