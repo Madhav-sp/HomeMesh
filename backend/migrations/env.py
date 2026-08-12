@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config, pool
 from app.core.config.settings import settings
 from app.infrastructure.database.base import Base
 from app.modules.users.models import User
+from app.modules.devices.models import Device
 config = context.config
 
 if config.config_file_name is not None:

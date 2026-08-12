@@ -6,6 +6,7 @@ from app.api.router import api_router
 from app.core.config.settings import settings
 from app.core.logging.logger import logger
 from app.modules.users.router import router as user_router
+from app.modules.devices.router import router as devices_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,7 +23,7 @@ app = FastAPI(
 
 app.include_router(api_router)
 app.include_router(user_router)
-
+app.include_router(devices_router)
 
 @app.get("/", tags=["Root"])
 async def root():
