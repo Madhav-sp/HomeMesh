@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.devices.models import Device
 from datetime import datetime, timezone
+from app.modules.devices.heartbeat_model import Heartbeat
 
 def create(
     db: Session,
@@ -72,4 +73,15 @@ def get_by_token_hash(
         select(Device).where(
             Device.device_token_hash == token_hash
         )
+    )
+
+def get_latest_heartbeat(
+    db: Session,
+    device_id: UUID,
+) -> Heartbeat | None:
+    return db.scalar(
+        select(Heartbeat)
+        .where(Heartbeat.device_id == device_id)
+        .order_by(Heartbeat.created_at.desc())
+        .limit(1)
     )

@@ -31,6 +31,8 @@ from app.modules.devices.service import (
 
 from app.modules.users.models import User
 from app.modules.devices.monitor import mark_stale_devices_offline
+from app.modules.devices.schemas import DeviceDetailResponse
+from app.modules.devices.service import get_device_details
 router = APIRouter(
     prefix="/api/v1/devices",
     tags=["Devices"],
@@ -165,4 +167,53 @@ def check_offline_devices(
 
     return {
         "marked_offline": count,
+    }
+
+
+@router.get(
+    "/{device_id}",
+    response_model=DeviceDetailResponse,
+)
+def get_device(
+    device_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    result = get_device_details(
+        db=db,
+        device_id=device_id,
+        owner_id=current_user.id,
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Device not found.",
+        )
+
+    device, heartbeat = result
+
+    metrics = None
+
+    if heartbeat:
+        metrics = {
+            "cpu_percent": heartbeat.cpu_percent,
+            "memory_percent": heartbeat.memory_percent,
+            "memory_used": heartbeat.memory_used,
+            "memory_total": heartbeat.memory_total,
+            "disk_percent": heartbeat.disk_percent,
+            "disk_used": heartbeat.disk_used,
+            "disk_total": heartbeat.disk_total,
+            "created_at": heartbeat.created_at,
+        }
+
+    return {
+        "id": device.id,
+        "name": device.name,
+        "hostname": device.hostname,
+        "os": device.os,
+        "agent_version": device.agent_version,
+        "status": device.status,
+        "last_seen": device.last_seen,
+        "latest_metrics": metrics,
     }

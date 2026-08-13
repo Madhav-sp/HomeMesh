@@ -127,3 +127,20 @@ def process_heartbeat(
     db.refresh(device)
 
     return device
+
+def get_device_details(
+    db: Session,
+    device_id: UUID,
+    owner_id: UUID,
+):
+    device = repository.get_by_id(db, device_id)
+
+    if device is None or device.owner_id != owner_id:
+        return None
+
+    heartbeat = repository.get_latest_heartbeat(
+        db,
+        device_id,
+    )
+
+    return device, heartbeat

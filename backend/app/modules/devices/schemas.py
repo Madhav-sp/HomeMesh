@@ -1,6 +1,5 @@
 from datetime import datetime
 from uuid import UUID
-
 from pydantic import BaseModel, ConfigDict
 
 
@@ -55,3 +54,24 @@ class HeartbeatRequest(BaseModel):
 class HeartbeatResponse(BaseModel):
     status: str
     last_seen: datetime
+
+class LatestMetrics(BaseModel):
+    cpu_percent: float | None = None
+    memory_percent: float | None = None
+    memory_used: int | None = None
+    memory_total: int | None = None
+    disk_percent: float | None = None
+    disk_used: int | None = None
+    disk_total: int | None = None
+    created_at: datetime | None = None
+
+
+class DeviceDetailResponse(BaseModel):
+    id: UUID
+    name: str
+    hostname: str
+    os: str
+    agent_version: str
+    status: str
+    last_seen: datetime | None
+    latest_metrics: LatestMetrics | None = None
