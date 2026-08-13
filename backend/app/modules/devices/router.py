@@ -30,7 +30,7 @@ from app.modules.devices.service import (
 )
 
 from app.modules.users.models import User
-
+from app.modules.devices.monitor import mark_stale_devices_offline
 router = APIRouter(
     prefix="/api/v1/devices",
     tags=["Devices"],
@@ -156,3 +156,13 @@ def heartbeat(
         status=device.status,
         last_seen=device.last_seen,
     )
+
+@router.post("/monitor/offline")
+def check_offline_devices(
+    db: Session = Depends(get_db),
+):
+    count = mark_stale_devices_offline(db)
+
+    return {
+        "marked_offline": count,
+    }
