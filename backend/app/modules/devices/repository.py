@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.devices.models import Device
-
+from datetime import datetime, timezone
 
 def create(
     db: Session,
@@ -47,5 +47,29 @@ def get_by_owner(
             select(Device)
             .where(Device.owner_id == owner_id)
             .order_by(Device.created_at.desc())
+        )
+    )
+
+
+
+
+
+def get_by_pairing_code(
+    db: Session,
+    pairing_code: str,
+) -> Device | None:
+    return db.scalar(
+        select(Device).where(
+            Device.pairing_code == pairing_code
+        )
+    )
+
+def get_by_token_hash(
+    db: Session,
+    token_hash: str,
+) -> Device | None:
+    return db.scalar(
+        select(Device).where(
+            Device.device_token_hash == token_hash
         )
     )

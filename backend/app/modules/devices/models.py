@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database.base import Base
-
+from sqlalchemy import DateTime, String, func
 
 class Device(Base):
     __tablename__ = "devices"
@@ -55,6 +55,17 @@ class Device(Base):
         nullable=True,
     )
 
+    pairing_code: Mapped[str | None] = mapped_column(
+    String(6),
+    nullable=True,
+    index=True,
+    )
+    
+    pairing_expires_at: Mapped[datetime | None] = mapped_column(
+    DateTime(timezone=True),
+    nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -67,3 +78,9 @@ class Device(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    
+    device_token_hash: Mapped[str | None] = mapped_column(
+    String(255),
+    nullable=True, 
+    )
+    
