@@ -19,6 +19,7 @@ from app.modules.devices.schemas import (
     PairDeviceResponse,
     HeartbeatRequest,
     HeartbeatResponse,
+    DeviceListResponse,
 )
 
 from app.modules.devices.service import (
@@ -61,16 +62,50 @@ def create_device(
 
 @router.get(
     "",
-    response_model=list[DeviceResponse],
+    response_model=list[DeviceListResponse],
 )
 def list_devices(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return repository.get_by_owner(
+    devices = repository.get_by_owner(
         db=db,
         owner_id=current_user.id,
     )
+
+    response = []
+
+    for device, heartbeat in devices:
+        metrics = None
+
+        if heartbeat:
+            metrics = {
+                "cpu_percent": heartbeat.cpu_percent,
+                "memory_percent": heartbeat.memory_percent,
+                "memory_used": heartbeat.memory_used,
+                "memory_total": heartbeat.memory_total,
+                "disk_percent": heartbeat.disk_percent,
+                "disk_used": heartbeat.disk_used,
+                "disk_total": heartbeat.disk_total,
+                "created_at": heartbeat.created_at,
+            }
+
+        response.append(
+            {
+                "id": device.id,
+                "name": device.name,
+                "hostname": device.hostname,
+                "os": device.os,
+                "agent_version": device.agent_version,
+                "status": device.status,
+                "last_seen": device.last_seen,
+                "created_at": device.created_at,
+                "updated_at": device.updated_at,
+                "latest_metrics": metrics,
+            }
+        )
+
+    return response
 
 
 @router.post(

@@ -42,14 +42,19 @@ def get_by_id(
 def get_by_owner(
     db: Session,
     owner_id: UUID,
-) -> list[Device]:
-    return list(
+) -> list[tuple[Device, Heartbeat | None]]:
+    devices = list(
         db.scalars(
             select(Device)
             .where(Device.owner_id == owner_id)
             .order_by(Device.created_at.desc())
         )
     )
+
+    return [
+        (device, get_latest_heartbeat(db, device.id))
+        for device in devices
+    ]
 
 
 

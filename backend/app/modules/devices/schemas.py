@@ -75,3 +75,16 @@ class DeviceDetailResponse(BaseModel):
     status: str
     last_seen: datetime | None
     latest_metrics: LatestMetrics | None = None
+
+
+class DeviceListResponse(BaseModel):
+    id: UUID
+    name: str
+    hostname: str
+    os: str
+    agent_version: str
+    status: str
+    last_seen: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    latest_metrics: LatestMetrics | None = None
