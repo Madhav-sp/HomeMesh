@@ -3,32 +3,38 @@ import Dashboard from "./pages/Dashboard";
 import DeviceDetails from "./pages/DeviceDetails";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
-
+import { AuthProvider } from "./context/AuthContext";
+import Register from "./pages/Register";
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+  path="/register"
+  element={<Register />}
+/>
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/devices/:deviceId"
-          element={
-            <ProtectedRoute>
-              <DeviceDetails />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+          <Route
+            path="/devices/:deviceId"
+            element={
+              <ProtectedRoute>
+                <DeviceDetails />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

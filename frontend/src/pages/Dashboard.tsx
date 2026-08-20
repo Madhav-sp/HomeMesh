@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import DeviceCard from "../components/DeviceCard";
+import Sidebar from "../components/Sidebar";
 
 type Device = {
   id: string;
@@ -21,89 +22,98 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
- useEffect(() => {
-  let mounted = true;
+  useEffect(() => {
+    let mounted = true;
 
-  async function loadDevices() {
-    try {
-      const response = await api.get("/api/v1/devices");
+    async function loadDevices() {
+      try {
+        const response = await api.get("/api/v1/devices");
 
-      if (mounted) {
-        setDevices(response.data);
-        setError("");
-      }
-    } catch (err) {
-      console.error(err);
+        if (mounted) {
+          setDevices(response.data);
+          setError("");
+        }
+      } catch (err) {
+        console.error(err);
 
-      if (mounted) {
-        setError("Unable to load devices.");
-      }
-    } finally {
-      if (mounted) {
-        setLoading(false);
+        if (mounted) {
+          setError("Unable to load devices.");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
-  }
 
-  loadDevices();
+    loadDevices();
 
-  const interval = setInterval(loadDevices, 10_000);
+    const interval = window.setInterval(loadDevices, 10_000);
 
-  return () => {
-    mounted = false;
-    clearInterval(interval);
-  };
-}, []);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   return (
-    <main className="min-h-screen bg-[#0f1115] px-8 py-10 text-white">
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-10">
-          <p className="text-sm text-gray-500">HomeMesh</p>
+    <main className="min-h-screen bg-[#0f1115] text-white">
+      <Sidebar />
 
-          <h1 className="mt-2 text-3xl font-bold">
-            Device Dashboard
-          </h1>
+      {/* Dashboard content */}
+      <div className="px-8 py-10 transition-all duration-300 md:ml-0">
+        <div className="mx-auto max-w-6xl">
 
-          <p className="mt-2 text-gray-400">
-            Monitor your connected devices.
-          </p>
-        </header>
-
-        {loading && (
-          <p className="text-gray-400">
-            Loading devices...
-          </p>
-        )}
-
-        {error && (
-          <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-400">
-            {error}
-          </div>
-        )}
-
-        {!loading && !error && devices.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center">
-            <h2 className="text-lg font-semibold">
-              No devices yet
-            </h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Pair a HomeMesh Agent to start monitoring a device.
+          <header className="mb-10">
+            <p className="text-sm text-gray-500">
+              HomeMesh
             </p>
-          </div>
-        )}
 
-        {!loading && !error && devices.length > 0 && (
-          <div className="grid gap-5 md:grid-cols-2">
-            {devices.map((device) => (
-              <DeviceCard
-                key={device.id}
-                device={device}
-              />
-            ))}
-          </div>
-        )}
+            <h1 className="mt-2 text-3xl font-bold">
+              Device Dashboard
+            </h1>
+
+            <p className="mt-2 text-gray-400">
+              Monitor your connected devices.
+            </p>
+          </header>
+
+          {loading && (
+            <p className="text-gray-400">
+              Loading devices...
+            </p>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-400">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && devices.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center">
+              <h2 className="text-lg font-semibold">
+                No devices yet
+              </h2>
+
+              <p className="mt-2 text-sm text-gray-500">
+                Pair a HomeMesh Agent to start monitoring a device.
+              </p>
+            </div>
+          )}
+
+          {!loading && !error && devices.length > 0 && (
+            <div className="grid gap-5 md:grid-cols-2">
+              {devices.map((device) => (
+                <DeviceCard
+                  key={device.id}
+                  device={device}
+                />
+              ))}
+            </div>
+          )}
+
+        </div>
       </div>
     </main>
   );

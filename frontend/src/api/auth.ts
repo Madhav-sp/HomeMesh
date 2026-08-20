@@ -32,6 +32,10 @@ export async function register(
   return response.data;
 }
 
+export async function getCurrentUser() {
+  const response = await api.get("/api/v1/auth/me");
+  return response.data;
+}
 export function logout() {
   localStorage.removeItem("access_token");
 }
