@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import DeviceCard from "../components/DeviceCard";
 import Sidebar from "../components/Sidebar";
+import CreateDeviceModal from "../components/CreateDeviceModal";
+import AddDeviceModal from "../components/AddDeviceModal";
 
 type Device = {
   id: string;
   name: string;
-  hostname: string;
-  os: string;
+  hostname: string | null;
+  os: string | null;
   status: string;
   last_seen: string | null;
   latest_metrics?: {
@@ -22,60 +24,84 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let mounted = true;
+  const [showCreateDevice, setShowCreateDevice] =
+    useState(false);
 
-    async function loadDevices() {
-      try {
-        const response = await api.get("/api/v1/devices");
+  const [pairingDeviceId, setPairingDeviceId] =
+    useState<string | null>(null);
 
-        if (mounted) {
-          setDevices(response.data);
-          setError("");
-        }
-      } catch (err) {
-        console.error(err);
+  async function loadDevices() {
+    try {
+      const response = await api.get("/api/v1/devices");
 
-        if (mounted) {
-          setError("Unable to load devices.");
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
+      setDevices(response.data);
+      setError("");
+    } catch (err) {
+      console.error(err);
+      setError("Unable to load devices.");
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     loadDevices();
 
-    const interval = window.setInterval(loadDevices, 10_000);
+    const interval = window.setInterval(
+      loadDevices,
+      10_000
+    );
 
     return () => {
-      mounted = false;
       window.clearInterval(interval);
     };
   }, []);
+
+  function handleDeviceCreated(deviceId: string) {
+    // Close Create Device modal
+    setShowCreateDevice(false);
+
+    // Refresh dashboard so the pending device appears
+    loadDevices();
+
+    // Immediately open Pair Device modal
+    setPairingDeviceId(deviceId);
+  }
 
   return (
     <main className="min-h-screen bg-[#0f1115] text-white">
       <Sidebar />
 
-      {/* Dashboard content */}
       <div className="px-8 py-10 transition-all duration-300 md:ml-0">
         <div className="mx-auto max-w-6xl">
 
-          <header className="mb-10">
-            <p className="text-sm text-gray-500">
-              HomeMesh
-            </p>
+          {/* Header */}
+          <header className="mb-10 flex items-start justify-between gap-6">
+            <div>
+              <p className="text-sm text-gray-500">
+                HomeMesh
+              </p>
 
-            <h1 className="mt-2 text-3xl font-bold">
-              Device Dashboard
-            </h1>
+              <h1 className="mt-2 text-3xl font-bold">
+                Device Dashboard
+              </h1>
 
-            <p className="mt-2 text-gray-400">
-              Monitor your connected devices.
-            </p>
+              <p className="mt-2 text-gray-400">
+                Monitor your connected devices.
+              </p>
+            </div>
+
+            {/* ADD DEVICE BUTTON */}
+            <button
+              onClick={() => setShowCreateDevice(true)}
+              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 font-semibold text-black hover:bg-gray-200"
+            >
+              <span className="text-xl leading-none">
+                +
+              </span>
+
+              Add Device
+            </button>
           </header>
 
           {loading && (
@@ -97,8 +123,15 @@ export default function Dashboard() {
               </h2>
 
               <p className="mt-2 text-sm text-gray-500">
-                Pair a HomeMesh Agent to start monitoring a device.
+                Click Add Device to register a new device.
               </p>
+
+              <button
+                onClick={() => setShowCreateDevice(true)}
+                className="mt-6 rounded-xl bg-white px-5 py-3 font-semibold text-black hover:bg-gray-200"
+              >
+                + Add Your First Device
+              </button>
             </div>
           )}
 
@@ -115,6 +148,25 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      {/* STEP 1: CREATE DEVICE */}
+      {showCreateDevice && (
+        <CreateDeviceModal
+          onClose={() => setShowCreateDevice(false)}
+          onDeviceCreated={handleDeviceCreated}
+        />
+      )}
+
+      {/* STEP 2: PAIR DEVICE */}
+      {pairingDeviceId && (
+        <AddDeviceModal
+          deviceId={pairingDeviceId}
+          onClose={() => {
+            setPairingDeviceId(null);
+            loadDevices();
+          }}
+        />
+      )}
     </main>
   );
 }

@@ -5,8 +5,8 @@ import AddDeviceModal from "./AddDeviceModal";
 type Device = {
   id: string;
   name: string;
-  hostname: string;
-  os: string;
+  hostname: string| null;
+  os: string | null;
   status: string;
   last_seen: string | null;
   latest_metrics?: {
@@ -37,7 +37,7 @@ export default function DeviceCard({ device }: Props) {
             </h2>
 
             <p className="text-sm text-gray-400">
-              {device.hostname}
+              {device.hostname || "waiting for agent..."} - {device.os || "unknown OS"}
             </p>
           </div>
 

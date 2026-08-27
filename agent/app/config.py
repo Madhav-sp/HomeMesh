@@ -16,10 +16,3 @@ DEVICE_TOKEN = os.getenv("HOMEMESH_DEVICE_TOKEN")
 HEARTBEAT_INTERVAL = int(
     os.getenv("HOMEMESH_HEARTBEAT_INTERVAL", "10")
 )
-
-
-if not DEVICE_ID:
-    raise RuntimeError("HOMEMESH_DEVICE_ID is not configured")
-
-if not DEVICE_TOKEN:
-    raise RuntimeError("HOMEMESH_DEVICE_TOKEN is not configured")

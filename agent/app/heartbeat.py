@@ -1,5 +1,4 @@
 import asyncio
-import platform
 
 import psutil
 
@@ -22,7 +21,10 @@ def collect_metrics() -> dict:
     }
 
 
-async def heartbeat_loop():
+async def heartbeat_loop(
+    device_id: str,
+    device_token: str,
+):
     print("HomeMesh Agent started")
 
     while True:
@@ -32,14 +34,14 @@ async def heartbeat_loop():
             print("Sending heartbeat...")
             print(metrics)
 
-            response = await send_heartbeat(metrics)
+            response = await send_heartbeat(
+                device_id=device_id,
+                device_token=device_token,
+                payload=metrics,
+            )
 
-            print(
-                f"Device status: {response['status']}"
-            )
-            print(
-                f"Last seen: {response['last_seen']}"
-            )
+            print(f"Device status: {response['status']}")
+            print(f"Last seen: {response['last_seen']}")
 
         except Exception as exc:
             print(f"Heartbeat failed: {exc}")

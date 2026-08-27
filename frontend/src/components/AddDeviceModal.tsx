@@ -21,7 +21,7 @@ export default function AddDeviceModal({
 
     try {
       const response = await api.post(
-        `/api/v1/devices/${deviceId}/pairing-code`,
+        `/api/v1/devices/${deviceId}/pairing-code`
       );
 
       setCode(response.data.code);
@@ -31,7 +31,7 @@ export default function AddDeviceModal({
 
       setError(
         err.response?.data?.detail ||
-          "Unable to generate pairing code.",
+          "Unable to generate pairing code."
       );
     } finally {
       setLoading(false);
@@ -91,7 +91,7 @@ export default function AddDeviceModal({
 
             <div className="mt-6 rounded-xl bg-[#0f1115] p-4 text-left">
               <p className="text-xs text-gray-500">
-                On the Agent, enter:
+                Enter this code in the HomeMesh Agent:
               </p>
 
               <code className="mt-2 block text-sm text-gray-300">
