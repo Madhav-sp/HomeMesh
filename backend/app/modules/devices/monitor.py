@@ -14,14 +14,15 @@ def mark_stale_devices_offline(db: Session) -> int:
         seconds=HEARTBEAT_TIMEOUT_SECONDS
     )
 
-    result = db.execute(
-        select(Device).where(
-            Device.status == "online",
-            Device.last_seen < cutoff,
+    devices = list(
+        db.scalars(
+            select(Device).where(
+                Device.status == "online",
+                Device.last_seen.is_not(None),
+                Device.last_seen < cutoff,
+            )
         )
     )
-
-    devices = result.scalars().all()
 
     for device in devices:
         device.status = "offline"

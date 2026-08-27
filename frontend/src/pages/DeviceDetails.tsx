@@ -5,9 +5,9 @@ import { api } from "../api/client";
 type Device = {
   id: string;
   name: string;
-  hostname: string;
-  os: string;
-  agent_version: string;
+  hostname: string | null;
+  os: string | null;
+  agent_version: string | null;
   status: string;
   last_seen: string | null;
   latest_metrics: {
@@ -24,11 +24,18 @@ type Device = {
 
 export default function DeviceDetails() {
   const { deviceId } = useParams();
+
   const [device, setDevice] = useState<Device | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!deviceId) return;
+    if (!deviceId) {
+      setLoading(false);
+      return;
+    }
+
+    let mounted = true;
 
     const loadDevice = async () => {
       try {
@@ -36,19 +43,35 @@ export default function DeviceDetails() {
           `/api/v1/devices/${deviceId}`
         );
 
-        setDevice(response.data);
+        if (mounted) {
+          setDevice(response.data);
+          setError("");
+        }
       } catch (error) {
         console.error(error);
+
+        if (mounted) {
+          setError("Unable to load device.");
+          setDevice(null);
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadDevice();
 
-    const interval = window.setInterval(loadDevice, 10_000);
+    const interval = window.setInterval(
+      loadDevice,
+      10_000
+    );
 
-    return () => window.clearInterval(interval);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
   }, [deviceId]);
 
   if (loading) {
@@ -59,15 +82,35 @@ export default function DeviceDetails() {
     );
   }
 
-  if (!device) {
+  if (error || !device) {
     return (
       <div className="min-h-screen bg-[#0f1115] p-10 text-white">
-        Device not found.
+        <Link
+          to="/"
+          className="text-sm text-gray-400 hover:text-white"
+        >
+          ← Back to devices
+        </Link>
+
+        <p className="mt-8 text-red-400">
+          {error || "Device not found."}
+        </p>
       </div>
     );
   }
 
   const metrics = device.latest_metrics;
+
+  const statusClasses = {
+    pending: "bg-yellow-500/10 text-yellow-400",
+    online: "bg-green-500/10 text-green-400",
+    offline: "bg-red-500/10 text-red-400",
+  };
+
+  const statusClass =
+    statusClasses[
+      device.status as keyof typeof statusClasses
+    ] || "bg-gray-500/10 text-gray-400";
 
   return (
     <main className="min-h-screen bg-[#0f1115] px-8 py-10 text-white">
@@ -87,60 +130,131 @@ export default function DeviceDetails() {
             </h1>
 
             <p className="mt-2 text-gray-400">
-              {device.hostname} · {device.os}
+              {device.hostname || "Not paired yet"}
+              {" · "}
+              {device.os || "Unknown OS"}
             </p>
           </div>
 
           <span
-            className={`rounded-full px-4 py-2 text-sm ${
-              device.status === "online"
-                ? "bg-green-500/10 text-green-400"
-                : "bg-red-500/10 text-red-400"
-            }`}
+            className={`rounded-full px-4 py-2 text-sm ${statusClass}`}
           >
             ● {device.status}
           </span>
         </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
+        {/* Pending Device */}
+        {device.status === "pending" && (
+          <div className="mt-10 rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-6">
+            <h2 className="text-lg font-semibold text-yellow-400">
+              Device waiting for pairing
+            </h2>
 
-          <MetricCard
-            title="CPU Usage"
-            value={metrics?.cpu_percent}
-          />
+            <p className="mt-2 text-sm text-gray-400">
+              Generate a pairing code from the dashboard and
+              enter it in the HomeMesh Agent.
+            </p>
+          </div>
+        )}
 
-          <MetricCard
-            title="Memory Usage"
-            value={metrics?.memory_percent}
-          />
+        {/* Metrics */}
+        {device.status !== "pending" && (
+          <>
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
 
-          <MetricCard
-            title="Disk Usage"
-            value={metrics?.disk_percent}
-          />
+              <MetricCard
+                title="CPU Usage"
+                value={
+                  metrics?.cpu_percent != null
+                    ? `${metrics.cpu_percent.toFixed(1)}%`
+                    : "--"
+                }
+              />
 
-        </div>
+              <MetricCard
+                title="Memory Usage"
+                value={
+                  metrics?.memory_percent != null
+                    ? `${metrics.memory_percent.toFixed(1)}%`
+                    : "--"
+                }
+                details={
+                  metrics?.memory_used != null &&
+                  metrics?.memory_total != null
+                    ? `${formatBytes(
+                        metrics.memory_used
+                      )} / ${formatBytes(
+                        metrics.memory_total
+                      )}`
+                    : undefined
+                }
+              />
 
+              <MetricCard
+                title="Disk Usage"
+                value={
+                  metrics?.disk_percent != null
+                    ? `${metrics.disk_percent.toFixed(1)}%`
+                    : "--"
+                }
+                details={
+                  metrics?.disk_used != null &&
+                  metrics?.disk_total != null
+                    ? `${formatBytes(
+                        metrics.disk_used
+                      )} / ${formatBytes(
+                        metrics.disk_total
+                      )}`
+                    : undefined
+                }
+              />
+
+            </div>
+
+            {!metrics && (
+              <p className="mt-6 text-sm text-gray-500">
+                Waiting for the first heartbeat from this device...
+              </p>
+            )}
+          </>
+        )}
+
+        {/* Device Information */}
         <div className="mt-8 rounded-2xl border border-white/10 bg-[#171a21] p-6">
           <h2 className="text-lg font-semibold">
             Device Information
           </h2>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <Info label="Hostname" value={device.hostname} />
-            <Info label="Operating System" value={device.os} />
+
+            <Info
+              label="Hostname"
+              value={device.hostname || "Not available"}
+            />
+
+            <Info
+              label="Operating System"
+              value={device.os || "Not available"}
+            />
+
             <Info
               label="Agent Version"
-              value={device.agent_version}
+              value={
+                device.agent_version || "Not available"
+              }
             />
+
             <Info
               label="Last Seen"
               value={
                 device.last_seen
-                  ? new Date(device.last_seen).toLocaleString()
+                  ? new Date(
+                      device.last_seen
+                    ).toLocaleString()
                   : "Never"
               }
             />
+
           </div>
         </div>
 
@@ -152,9 +266,11 @@ export default function DeviceDetails() {
 function MetricCard({
   title,
   value,
+  details,
 }: {
   title: string;
-  value: number | null | undefined;
+  value: string;
+  details?: string;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-[#171a21] p-6">
@@ -163,8 +279,14 @@ function MetricCard({
       </p>
 
       <p className="mt-3 text-4xl font-bold">
-        {value != null ? `${value.toFixed(1)}%` : "--"}
+        {value}
       </p>
+
+      {details && (
+        <p className="mt-2 text-sm text-gray-500">
+          {details}
+        </p>
+      )}
     </div>
   );
 }
@@ -187,4 +309,17 @@ function Info({
       </p>
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = Math.floor(
+    Math.log(bytes) / Math.log(1024)
+  );
+
+  return `${(
+    bytes / Math.pow(1024, index)
+  ).toFixed(1)} ${units[index]}`;
 }

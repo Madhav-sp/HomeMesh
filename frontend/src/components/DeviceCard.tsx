@@ -1,12 +1,12 @@
-import { Link } from "react-router-dom";
 import { useState } from "react";
 import AddDeviceModal from "./AddDeviceModal";
 
 type Device = {
   id: string;
   name: string;
-  hostname: string| null;
+  hostname: string | null;
   os: string | null;
+  agent_version?: string | null;
   status: string;
   last_seen: string | null;
   latest_metrics?: {
@@ -21,109 +21,113 @@ type Props = {
 };
 
 export default function DeviceCard({ device }: Props) {
-  const [showPairing, setShowPairing] = useState(false);
+  const [showPairModal, setShowPairModal] = useState(false);
 
-  const online = device.status === "online";
+  const isPending = device.status === "pending";
+  const isOnline = device.status === "online";
+  const isOffline = device.status === "offline";
 
   return (
     <>
-      <div className="rounded-2xl border border-white/10 bg-[#171a21] p-6 transition hover:border-white/20">
-
-        {/* Device header */}
-        <div className="mb-6 flex items-center justify-between">
+      <div className="rounded-2xl border border-white/10 bg-[#171a21] p-5">
+        <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold">
               {device.name}
             </h2>
 
-            <p className="text-sm text-gray-400">
-              {device.hostname || "waiting for agent..."} - {device.os || "unknown OS"}
+            <p className="mt-1 text-sm text-gray-500">
+              {device.hostname || "Waiting for agent pairing"}
             </p>
           </div>
 
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              online
-                ? "bg-green-500/10 text-green-400"
-                : "bg-red-500/10 text-red-400"
-            }`}
-          >
-            ● {online ? "Online" : "Offline"}
+          <span className="rounded-full border border-white/10 px-3 py-1 text-xs">
+            {isPending && "Pending"}
+            {isOnline && "Online"}
+            {isOffline && "Offline"}
           </span>
         </div>
 
-        {/* Metrics */}
-        <div className="grid grid-cols-3 gap-3">
-          <Metric
-            label="CPU"
-            value={device.latest_metrics?.cpu_percent}
-          />
+        {isPending ? (
+          <div className="mt-6">
+            <p className="text-sm text-gray-400">
+              This device has not been paired yet.
+            </p>
 
-          <Metric
-            label="Memory"
-            value={device.latest_metrics?.memory_percent}
-          />
+            <button
+              onClick={() => setShowPairModal(true)}
+              className="mt-4 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200"
+            >
+              Pair Device
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              <Metric
+                label="CPU"
+                value={device.latest_metrics?.cpu_percent}
+                suffix="%"
+              />
 
-          <Metric
-            label="Disk"
-            value={device.latest_metrics?.disk_percent}
-          />
-        </div>
+              <Metric
+                label="Memory"
+                value={device.latest_metrics?.memory_percent}
+                suffix="%"
+              />
 
-        {/* Last seen */}
-        <div className="mt-5 border-t border-white/10 pt-4 text-xs text-gray-500">
-          {device.last_seen
-            ? `Last seen ${new Date(
-                device.last_seen,
-              ).toLocaleString()}`
-            : "Never connected"}
-        </div>
+              <Metric
+                label="Disk"
+                value={device.latest_metrics?.disk_percent}
+                suffix="%"
+              />
+            </div>
 
-        {/* Actions */}
-        <div className="mt-5 flex gap-3">
-          <Link
-            to={`/devices/${device.id}`}
-            className="flex-1 rounded-xl border border-white/10 px-4 py-3 text-center text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
-          >
-            View Details
-          </Link>
+            <div className="mt-5 border-t border-white/10 pt-4 text-sm text-gray-500">
+              <p>OS: {device.os || "Unknown"}</p>
 
-          <button
-            type="button"
-            onClick={() => setShowPairing(true)}
-            className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-gray-200"
-          >
-            Pair Agent
-          </button>
-        </div>
+              <p className="mt-1">
+                Last seen:{" "}
+                {device.last_seen
+                  ? new Date(device.last_seen).toLocaleString()
+                  : "Never"}
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Modal */}
-      {showPairing && (
+      {showPairModal && (
         <AddDeviceModal
           deviceId={device.id}
-          onClose={() => setShowPairing(false)}
+          onClose={() => setShowPairModal(false)}
         />
       )}
     </>
   );
 }
 
+type MetricProps = {
+  label: string;
+  value: number | null | undefined;
+  suffix: string;
+};
+
 function Metric({
   label,
   value,
-}: {
-  label: string;
-  value?: number | null;
-}) {
+  suffix,
+}: MetricProps) {
   return (
-    <div className="rounded-xl bg-[#0f1115] p-4">
+    <div className="rounded-xl bg-[#0f1115] p-3">
       <p className="text-xs text-gray-500">
         {label}
       </p>
 
-      <p className="mt-1 text-xl font-semibold">
-        {value != null ? `${value.toFixed(1)}%` : "--"}
+      <p className="mt-1 text-lg font-semibold">
+        {value !== null && value !== undefined
+          ? `${value.toFixed(1)}${suffix}`
+          : "—"}
       </p>
     </div>
   );
