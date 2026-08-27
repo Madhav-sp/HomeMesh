@@ -4,23 +4,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.devices.models import Device
-from datetime import datetime, timezone
 from app.modules.devices.heartbeat_model import Heartbeat
+
 
 def create(
     db: Session,
     owner_id: UUID,
     name: str,
-    hostname: str,
-    os: str,
-    agent_version: str,
 ) -> Device:
     device = Device(
         owner_id=owner_id,
         name=name,
-        hostname=hostname,
-        os=os,
-        agent_version=agent_version,
+        status="pending",
     )
 
     db.add(device)
@@ -57,9 +52,6 @@ def get_by_owner(
     ]
 
 
-
-
-
 def get_by_pairing_code(
     db: Session,
     pairing_code: str,
@@ -70,6 +62,7 @@ def get_by_pairing_code(
         )
     )
 
+
 def get_by_token_hash(
     db: Session,
     token_hash: str,
@@ -79,6 +72,7 @@ def get_by_token_hash(
             Device.device_token_hash == token_hash
         )
     )
+
 
 def get_latest_heartbeat(
     db: Session,

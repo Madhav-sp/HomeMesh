@@ -1,43 +1,55 @@
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
+import hashlib
+import secrets
 
 from sqlalchemy.orm import Session
 
 from app.modules.devices import repository
-from app.modules.devices.models import Device
-import secrets
-from datetime import datetime, timedelta, timezone
-import secrets
-import hashlib
-from datetime import datetime, timezone
-
 from app.modules.devices.heartbeat_model import Heartbeat
+from app.modules.devices.models import Device
+
+
+# ---------------------------------------------------------
+# DEVICE REGISTRATION
+# ---------------------------------------------------------
+
 def register_device(
     db: Session,
     owner_id: UUID,
     name: str,
-    hostname: str,
-    os: str,
-    agent_version: str,
 ) -> Device:
+    """
+    Create a new pending device.
+
+    The user only provides the device name.
+    The Agent provides hostname, OS and agent version
+    during the pairing process.
+    """
     return repository.create(
         db=db,
         owner_id=owner_id,
         name=name,
-        hostname=hostname,
-        os=os,
-        agent_version=agent_version,
     )
+
+
+# ---------------------------------------------------------
+# PAIRING CODE
+# ---------------------------------------------------------
 
 def generate_pairing_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
+
 
 def create_pairing_code(
     db: Session,
     device: Device,
 ) -> Device:
     device.pairing_code = generate_pairing_code()
+
     device.pairing_expires_at = (
-        datetime.now(timezone.utc) + timedelta(minutes=10)
+        datetime.now(timezone.utc)
+        + timedelta(minutes=10)
     )
 
     db.commit()
@@ -45,7 +57,18 @@ def create_pairing_code(
 
     return device
 
+
+# ---------------------------------------------------------
+# DEVICE TOKEN
+# ---------------------------------------------------------
+
 def generate_device_token() -> tuple[str, str]:
+    """
+    Generate the raw device token and its SHA-256 hash.
+
+    The raw token is returned to the Agent only once.
+    Only the hash is stored in the database.
+    """
     token = secrets.token_urlsafe(32)
 
     token_hash = hashlib.sha256(
@@ -54,6 +77,11 @@ def generate_device_token() -> tuple[str, str]:
 
     return token, token_hash
 
+
+# ---------------------------------------------------------
+# PAIRING
+# ---------------------------------------------------------
+
 class InvalidPairingCodeError(Exception):
     pass
 
@@ -61,6 +89,9 @@ class InvalidPairingCodeError(Exception):
 def pair_device(
     db: Session,
     pairing_code: str,
+    hostname: str,
+    os: str,
+    agent_version: str,
 ) -> tuple[Device, str]:
 
     device = repository.get_by_pairing_code(
@@ -82,18 +113,34 @@ def pair_device(
             "Pairing code has expired."
         )
 
+    # Generate device authentication token
     token, token_hash = generate_device_token()
 
+    # Agent provides the actual machine information
+    device.hostname = hostname
+    device.os = os
+    device.agent_version = agent_version
+
+    # Store only the token hash
     device.device_token_hash = token_hash
 
-    # Code can only be used once
+    # Pairing code can only be used once
     device.pairing_code = None
     device.pairing_expires_at = None
+
+    # Pairing succeeded, but Agent has not sent
+    # a heartbeat yet.
+    device.status = "offline"
 
     db.commit()
     db.refresh(device)
 
     return device, token
+
+
+# ---------------------------------------------------------
+# HEARTBEAT
+# ---------------------------------------------------------
 
 def process_heartbeat(
     db: Session,
@@ -120,6 +167,7 @@ def process_heartbeat(
 
     db.add(heartbeat)
 
+    # Heartbeat means Agent is currently alive
     device.status = "online"
     device.last_seen = datetime.now(timezone.utc)
 
@@ -128,12 +176,20 @@ def process_heartbeat(
 
     return device
 
+
+# ---------------------------------------------------------
+# DEVICE DETAILS
+# ---------------------------------------------------------
+
 def get_device_details(
     db: Session,
     device_id: UUID,
     owner_id: UUID,
 ):
-    device = repository.get_by_id(db, device_id)
+    device = repository.get_by_id(
+        db,
+        device_id,
+    )
 
     if device is None or device.owner_id != owner_id:
         return None

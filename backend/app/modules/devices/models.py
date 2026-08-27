@@ -30,24 +30,24 @@ class Device(Base):
 
     hostname: Mapped[str] = mapped_column(
         String(255),
-        nullable=False,
+        nullable=True,
     )
 
     os: Mapped[str] = mapped_column(
         String(100),
-        nullable=False,
+        nullable=True,
     )
 
     agent_version: Mapped[str] = mapped_column(
         String(50),
-        nullable=False,
+        nullable=True,
     )
 
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        default="offline",
-        server_default="offline",
+        default="pending",
+        server_default="pending",
     )
 
     last_seen: Mapped[datetime | None] = mapped_column(

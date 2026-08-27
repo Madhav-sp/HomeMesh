@@ -5,40 +5,42 @@ from sqlalchemy.orm import Session
 
 from app.core.security.dependencies import get_current_user
 from app.core.security.device_auth import get_current_device
-
 from app.infrastructure.database.dependencies import get_db
 
 from app.modules.devices import repository
 from app.modules.devices.models import Device
-
+from app.modules.devices.monitor import mark_stale_devices_offline
 from app.modules.devices.schemas import (
-    DeviceRegister,
+    DeviceCreate,
+    DeviceDetailResponse,
+    DeviceListResponse,
     DeviceResponse,
-    PairingCodeResponse,
-    PairDeviceRequest,
-    PairDeviceResponse,
     HeartbeatRequest,
     HeartbeatResponse,
-    DeviceListResponse,
+    PairDeviceRequest,
+    PairDeviceResponse,
+    PairingCodeResponse,
 )
-
 from app.modules.devices.service import (
     InvalidPairingCodeError,
     create_pairing_code,
+    get_device_details,
     pair_device,
     process_heartbeat,
     register_device,
 )
-
 from app.modules.users.models import User
-from app.modules.devices.monitor import mark_stale_devices_offline
-from app.modules.devices.schemas import DeviceDetailResponse
-from app.modules.devices.service import get_device_details
+
+
 router = APIRouter(
     prefix="/api/v1/devices",
     tags=["Devices"],
 )
 
+
+# =========================================================
+# CREATE PENDING DEVICE
+# =========================================================
 
 @router.post(
     "",
@@ -46,7 +48,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 def create_device(
-    data: DeviceRegister,
+    data: DeviceCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -54,11 +56,12 @@ def create_device(
         db=db,
         owner_id=current_user.id,
         name=data.name,
-        hostname=data.hostname,
-        os=data.os,
-        agent_version=data.agent_version,
     )
 
+
+# =========================================================
+# LIST DEVICES
+# =========================================================
 
 @router.get(
     "",
@@ -108,6 +111,10 @@ def list_devices(
     return response
 
 
+# =========================================================
+# GENERATE PAIRING CODE
+# =========================================================
+
 @router.post(
     "/{device_id}/pairing-code",
     response_model=PairingCodeResponse,
@@ -117,12 +124,22 @@ def generate_device_pairing_code(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    device = repository.get_by_id(db, device_id)
+    device = repository.get_by_id(
+        db,
+        device_id,
+    )
 
     if device is None or device.owner_id != current_user.id:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found.",
+        )
+
+    # Only pending/offline devices should be paired.
+    if device.device_token_hash is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Device is already paired.",
         )
 
     device = create_pairing_code(
@@ -136,6 +153,10 @@ def generate_device_pairing_code(
     )
 
 
+# =========================================================
+# PAIR AGENT
+# =========================================================
+
 @router.post(
     "/pair",
     response_model=PairDeviceResponse,
@@ -148,10 +169,14 @@ def pair_device_endpoint(
         device, token = pair_device(
             db=db,
             pairing_code=data.pairing_code,
+            hostname=data.hostname,
+            os=data.os,
+            agent_version=data.agent_version,
         )
+
     except InvalidPairingCodeError as exc:
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
 
@@ -160,6 +185,10 @@ def pair_device_endpoint(
         device_token=token,
     )
 
+
+# =========================================================
+# HEARTBEAT
+# =========================================================
 
 @router.post(
     "/{device_id}/heartbeat",
@@ -173,7 +202,7 @@ def heartbeat(
 ):
     if current_device.id != device_id:
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Device token does not match device.",
         )
 
@@ -194,6 +223,11 @@ def heartbeat(
         last_seen=device.last_seen,
     )
 
+
+# =========================================================
+# OFFLINE MONITOR
+# =========================================================
+
 @router.post("/monitor/offline")
 def check_offline_devices(
     db: Session = Depends(get_db),
@@ -204,6 +238,10 @@ def check_offline_devices(
         "marked_offline": count,
     }
 
+
+# =========================================================
+# DEVICE DETAILS
+# =========================================================
 
 @router.get(
     "/{device_id}",
@@ -222,7 +260,7 @@ def get_device(
 
     if result is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found.",
         )
 
@@ -252,3 +290,5 @@ def get_device(
         "last_seen": device.last_seen,
         "latest_metrics": metrics,
     }
+
+    
