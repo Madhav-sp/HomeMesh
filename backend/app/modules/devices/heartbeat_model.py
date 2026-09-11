@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, func
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -63,4 +63,24 @@ class Heartbeat(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+    )
+
+    cpu_cores: Mapped[int | None] = mapped_column(
+    Integer,
+    nullable=True,
+    )
+
+    cpu_threads: Mapped[int | None] = mapped_column(
+    Integer,
+    nullable=True,
+    )
+
+    cpu_frequency_mhz: Mapped[float | None] = mapped_column(
+    Float,
+    nullable=True,
+    )
+
+    uptime_seconds: Mapped[int | None] = mapped_column(
+    BigInteger,
+    nullable=True,
     )

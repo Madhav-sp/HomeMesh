@@ -67,12 +67,25 @@ class PairingCodeResponse(BaseModel):
 
 class HeartbeatRequest(BaseModel):
     cpu_percent: float | None = None
+
     memory_percent: float | None = None
     memory_used: int | None = None
     memory_total: int | None = None
+
     disk_percent: float | None = None
     disk_used: int | None = None
     disk_total: int | None = None
+
+    # Compute information
+    cpu_cores: int | None = None
+    cpu_threads: int | None = None
+    cpu_frequency_mhz: float | None = None
+
+    hostname: str | None = None
+    platform: str | None = None
+
+    # System uptime
+    uptime_seconds: int | None = None
 
 
 class HeartbeatResponse(BaseModel):
@@ -86,13 +99,41 @@ class HeartbeatResponse(BaseModel):
 
 class LatestMetrics(BaseModel):
     cpu_percent: float | None = None
+
     memory_percent: float | None = None
     memory_used: int | None = None
     memory_total: int | None = None
+
     disk_percent: float | None = None
     disk_used: int | None = None
     disk_total: int | None = None
+
+    # Compute information
+    cpu_cores: int | None = None
+    cpu_threads: int | None = None
+    cpu_frequency_mhz: float | None = None
+
+    # System uptime
+    uptime_seconds: int | None = None
+
     created_at: datetime | None = None
+
+
+# ---------------------------------------------------------
+# STORAGE
+# ---------------------------------------------------------
+
+class StoragePartition(BaseModel):
+    mount_point: str
+    filesystem: str | None = None
+    total_bytes: int
+    used_bytes: int
+    free_bytes: int
+    usage_percent: float
+
+
+class StorageUpdateRequest(BaseModel):
+    storage: list[StoragePartition]
 
 
 # ---------------------------------------------------------
@@ -107,7 +148,11 @@ class DeviceDetailResponse(BaseModel):
     agent_version: str | None
     status: str
     last_seen: datetime | None
+
     latest_metrics: LatestMetrics | None = None
+
+    # Latest storage information
+    storage: list[StoragePartition] = []
 
 
 # ---------------------------------------------------------
@@ -124,4 +169,5 @@ class DeviceListResponse(BaseModel):
     last_seen: datetime | None
     created_at: datetime
     updated_at: datetime
+
     latest_metrics: LatestMetrics | None = None

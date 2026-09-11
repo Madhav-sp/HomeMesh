@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -5,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.devices.models import Device
 from app.modules.devices.heartbeat_model import Heartbeat
+from app.modules.devices.storage_model import DeviceStorage
 
 
 def create(
@@ -84,3 +86,82 @@ def get_latest_heartbeat(
         .order_by(Heartbeat.created_at.desc())
         .limit(1)
     )
+
+
+def get_heartbeat_history(
+    db: Session,
+    device_id: UUID,
+    minutes: int = 5,
+) -> list[Heartbeat]:
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        minutes=minutes
+    )
+
+    return list(
+        db.scalars(
+            select(Heartbeat)
+            .where(
+                Heartbeat.device_id == device_id,
+                Heartbeat.created_at >= cutoff,
+            )
+            .order_by(Heartbeat.created_at.asc())
+        )
+    )
+
+
+def get_device_storage(
+    db: Session,
+    device_id: UUID,
+) -> list[DeviceStorage]:
+    return list(
+        db.scalars(
+            select(DeviceStorage)
+            .where(
+                DeviceStorage.device_id == device_id
+            )
+            .order_by(DeviceStorage.mount_point.asc())
+        )
+    )
+
+
+def replace_device_storage(
+    db: Session,
+    device_id: UUID,
+    storage_data: list[dict],
+) -> list[DeviceStorage]:
+    db.query(DeviceStorage).filter(
+        DeviceStorage.device_id == device_id
+    ).delete(
+        synchronize_session=False
+    )
+
+    storage_records = []
+
+    for item in storage_data:
+        storage = DeviceStorage(
+            device_id=device_id,
+            mount_point=item["mount_point"],
+            filesystem=item.get("filesystem"),
+            total_bytes=item["total_bytes"],
+            used_bytes=item["used_bytes"],
+            free_bytes=item["free_bytes"],
+            usage_percent=item["usage_percent"],
+        )
+
+        db.add(storage)
+        storage_records.append(storage)
+
+    db.commit()
+
+    for storage in storage_records:
+        db.refresh(storage)
+
+    return storage_records
+
+
+def delete(
+    db: Session,
+    device: Device,
+) -> None:
+    db.delete(device)
+    db.commit()

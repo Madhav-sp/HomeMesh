@@ -152,17 +152,33 @@ def process_heartbeat(
     disk_percent: float | None,
     disk_used: int | None,
     disk_total: int | None,
+    cpu_cores: int | None,
+    cpu_threads: int | None,
+    cpu_frequency_mhz: float | None,
+    uptime_seconds: int | None,
 ) -> Device:
 
     heartbeat = Heartbeat(
         device_id=device.id,
+
+        # CPU
         cpu_percent=cpu_percent,
+        cpu_cores=cpu_cores,
+        cpu_threads=cpu_threads,
+        cpu_frequency_mhz=cpu_frequency_mhz,
+
+        # Memory
         memory_percent=memory_percent,
         memory_used=memory_used,
         memory_total=memory_total,
+
+        # Disk
         disk_percent=disk_percent,
         disk_used=disk_used,
         disk_total=disk_total,
+
+        # System
+        uptime_seconds=uptime_seconds,
     )
 
     db.add(heartbeat)
