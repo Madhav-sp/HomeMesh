@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 from app.modules.devices.models import Device
 from app.modules.devices.heartbeat_model import Heartbeat
 from app.modules.devices.storage_model import DeviceStorage
+from app.modules.devices.photo_model import DevicePhoto
 
+
+# =========================================================
+# DEVICE
+# =========================================================
 
 def create(
     db: Session,
@@ -109,6 +114,18 @@ def get_heartbeat_history(
     )
 
 
+def delete(
+    db: Session,
+    device: Device,
+) -> None:
+    db.delete(device)
+    db.commit()
+
+
+# =========================================================
+# DEVICE STORAGE
+# =========================================================
+
 def get_device_storage(
     db: Session,
     device_id: UUID,
@@ -159,9 +176,79 @@ def replace_device_storage(
     return storage_records
 
 
-def delete(
+# =========================================================
+# DEVICE PHOTOS
+# =========================================================
+
+def sync_device_photos(
     db: Session,
-    device: Device,
-) -> None:
-    db.delete(device)
+    device_id: UUID,
+    photos_data: list[dict],
+) -> list[DevicePhoto]:
+    """
+    Add new photos and update existing photo metadata.
+
+    Existing photos are identified using their file path.
+    Photos are NOT deleted if they are missing from a scan.
+    """
+
+    existing_photos = {
+        photo.file_path: photo
+        for photo in db.scalars(
+            select(DevicePhoto).where(
+                DevicePhoto.device_id == device_id
+            )
+        )
+    }
+
+    synced_photos = []
+
+    for item in photos_data:
+        file_path = item["file_path"]
+
+        existing = existing_photos.get(file_path)
+
+        if existing:
+            # Existing photo
+            existing.file_name = item["file_name"]
+            existing.file_size = item["file_size"]
+            existing.mime_type = item.get("mime_type")
+            existing.modified_at = item.get("modified_at")
+
+            synced_photos.append(existing)
+
+        else:
+            # New photo
+            photo = DevicePhoto(
+                device_id=device_id,
+                file_name=item["file_name"],
+                file_path=file_path,
+                file_size=item["file_size"],
+                mime_type=item.get("mime_type"),
+                modified_at=item.get("modified_at"),
+            )
+
+            db.add(photo)
+            synced_photos.append(photo)
+
     db.commit()
+
+    for photo in synced_photos:
+        db.refresh(photo)
+
+    return synced_photos
+
+
+def get_device_photos(
+    db: Session,
+    device_id: UUID,
+) -> list[DevicePhoto]:
+    return list(
+        db.scalars(
+            select(DevicePhoto)
+            .where(
+                DevicePhoto.device_id == device_id
+            )
+            .order_by(DevicePhoto.modified_at.desc())
+        )
+    )

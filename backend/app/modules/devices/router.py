@@ -20,6 +20,7 @@ from app.modules.devices.schemas import (
     PairDeviceResponse,
     PairingCodeResponse,
     StorageUpdateRequest,
+    PhotoUpdateRequest,
 )
 from app.modules.devices.service import (
     InvalidPairingCodeError,
@@ -454,4 +455,78 @@ def get_device_storage(
             "usage_percent": item.usage_percent,
         }
         for item in storage
+    ]
+
+# =========================================================
+# DEVICE PHOTOS - AGENT UPDATE
+# =========================================================
+
+@router.post(
+    "/{device_id}/photos",
+)
+def update_device_photos(
+    device_id: UUID,
+    data: PhotoUpdateRequest,
+    current_device: Device = Depends(get_current_device),
+    db: Session = Depends(get_db),
+):
+    if current_device.id != device_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Device token does not match device.",
+        )
+
+    photo_records = repository.sync_device_photos(
+        db=db,
+        device_id=device_id,
+        photos_data=[
+            photo.model_dump()
+            for photo in data.photos
+        ],
+    )
+
+    return {
+        "device_id": device_id,
+        "photos": len(photo_records),
+    }
+
+
+# =========================================================
+# DEVICE PHOTOS - VIEW
+# =========================================================
+
+@router.get(
+    "/{device_id}/photos",
+)
+def get_device_photos(
+    device_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    device = repository.get_by_id(
+        db=db,
+        device_id=device_id,
+    )
+
+    if device is None or device.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Device not found.",
+        )
+
+    photos = repository.get_device_photos(
+        db=db,
+        device_id=device_id,
+    )
+
+    return [
+        {
+            "id": photo.id,
+            "file_name": photo.file_name,
+            "file_path": photo.file_path,
+            "file_size": photo.file_size,
+            "mime_type": photo.mime_type,
+            "modified_at": photo.modified_at,
+        }
+        for photo in photos
     ]

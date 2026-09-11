@@ -55,8 +55,6 @@ async def send_heartbeat(
         return response.json()
 
 
-
-
 async def send_storage(
     device_id: str,
     device_token: str,
@@ -75,6 +73,32 @@ async def send_storage(
     async with httpx.AsyncClient(
         timeout=10.0
     ) as client:
+        response = await client.post(
+            url,
+            json=payload,
+            headers=headers,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+async def send_photos(
+    device_id: str,
+    device_token: str,
+    photos: list,
+) -> dict:
+    url = f"{API_URL}/api/v1/devices/{device_id}/photos"
+
+    headers = {
+        "Authorization": f"Bearer {device_token}"
+    }
+
+    payload = {
+        "photos": photos
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             url,
             json=payload,

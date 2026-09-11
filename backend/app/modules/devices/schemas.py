@@ -171,3 +171,15 @@ class DeviceListResponse(BaseModel):
     updated_at: datetime
 
     latest_metrics: LatestMetrics | None = None
+
+
+class PhotoItem(BaseModel):
+    file_name: str
+    file_path: str
+    file_size: int
+    mime_type: str | None = None
+    modified_at: datetime | None = None
+
+
+class PhotoUpdateRequest(BaseModel):
+    photos: list[PhotoItem]
