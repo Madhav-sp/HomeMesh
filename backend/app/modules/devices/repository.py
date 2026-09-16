@@ -185,12 +185,6 @@ def sync_device_photos(
     device_id: UUID,
     photos_data: list[dict],
 ) -> list[DevicePhoto]:
-    """
-    Add new photos and update existing photo metadata.
-
-    Existing photos are identified using their file path.
-    Photos are NOT deleted if they are missing from a scan.
-    """
 
     existing_photos = {
         photo.file_path: photo
@@ -201,24 +195,39 @@ def sync_device_photos(
         )
     }
 
+    current_paths = {
+        item["file_path"]
+        for item in photos_data
+    }
+
     synced_photos = []
+
+    # Remove photos that no longer exist on the device
+    for file_path, photo in existing_photos.items():
+        if file_path not in current_paths:
+            db.delete(photo)
 
     for item in photos_data:
         file_path = item["file_path"]
-
         existing = existing_photos.get(file_path)
 
         if existing:
-            # Existing photo
+            changed = (
+                existing.file_size != item["file_size"]
+                or existing.modified_at != item.get("modified_at")
+            )
+
             existing.file_name = item["file_name"]
             existing.file_size = item["file_size"]
             existing.mime_type = item.get("mime_type")
             existing.modified_at = item.get("modified_at")
 
+            if changed:
+                existing.storage_path = None
+
             synced_photos.append(existing)
 
         else:
-            # New photo
             photo = DevicePhoto(
                 device_id=device_id,
                 file_name=item["file_name"],
@@ -226,6 +235,7 @@ def sync_device_photos(
                 file_size=item["file_size"],
                 mime_type=item.get("mime_type"),
                 modified_at=item.get("modified_at"),
+                storage_path=None,
             )
 
             db.add(photo)
@@ -237,7 +247,6 @@ def sync_device_photos(
         db.refresh(photo)
 
     return synced_photos
-
 
 def get_device_photos(
     db: Session,

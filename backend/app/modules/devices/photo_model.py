@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String,Text, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,9 +28,16 @@ class DevicePhoto(Base):
         nullable=False,
     )
 
+    # Original path on the agent's computer
     file_path: Mapped[str] = mapped_column(
         Text,
         nullable=False,
+    )
+
+    # Path where HomeMesh stores the actual uploaded image
+    storage_path: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     file_size: Mapped[int] = mapped_column(

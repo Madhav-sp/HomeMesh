@@ -33,7 +33,7 @@ def scan_photos(
     if directories is None:
         directories = [
             os.path.expanduser("~/Pictures"),
-            os.path.expanduser("~/Downloads"),
+            
         ]
 
     photos = []

@@ -2,6 +2,78 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import MetricCharts from "../components/MetricCharts";
+function PhotoImage({
+  imageUrl,
+  fileName,
+}: {
+  imageUrl: string;
+  fileName: string;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+
+    const loadImage = async () => {
+      try {
+        const response = await api.get(
+          imageUrl,
+          {
+            responseType: "blob",
+          }
+        );
+
+        objectUrl = URL.createObjectURL(
+          response.data
+        );
+
+        setSrc(objectUrl);
+      } catch (error) {
+        console.error(
+          "Failed to load image:",
+          error
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadImage();
+
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [imageUrl]);
+
+  if (loading) {
+    return (
+      <div className="flex h-48 items-center justify-center rounded-lg bg-[#171a21]">
+        <span className="text-sm text-gray-500">
+          Loading...
+        </span>
+      </div>
+    );
+  }
+
+  if (!src) {
+    return (
+      <div className="flex h-48 items-center justify-center rounded-lg bg-[#171a21]">
+        <span className="text-4xl">📷</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={fileName}
+      className="h-48 w-full object-cover"
+    />
+  );
+}
 
 type StoragePartition = {
   mount_point: string;
@@ -11,6 +83,20 @@ type StoragePartition = {
   free_bytes: number;
   usage_percent: number;
 };
+
+
+type DevicePhoto = {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  mime_type: string | null;
+  modified_at: string | null;
+  created_at: string;
+  uploaded: boolean;
+  image_url: string | null;
+};
+
 
 type Device = {
   id: string;
@@ -42,6 +128,7 @@ type Device = {
   storage?: StoragePartition[];
 };
 
+
 type HistoricalMetric = {
   cpu_percent: number | null;
   memory_percent: number | null;
@@ -49,27 +136,42 @@ type HistoricalMetric = {
   created_at: string;
 };
 
+
 export default function DeviceDetails() {
   const { deviceId } = useParams();
   const navigate = useNavigate();
 
+
   const [device, setDevice] =
     useState<Device | null>(null);
+
 
   const [history, setHistory] =
     useState<HistoricalMetric[]>([]);
 
+
+  const [photos, setPhotos] =
+    useState<DevicePhoto[]>([]);
+
+
   const [historyRange, setHistoryRange] =
     useState(5);
+
 
   const [loading, setLoading] =
     useState(true);
 
+
   const [error, setError] =
     useState("");
 
+
   const [deleting, setDeleting] =
     useState(false);
+
+
+  const [selectedPhoto, setSelectedPhoto] = useState<DevicePhoto | null>(null);
+
 
   useEffect(() => {
     if (!deviceId) {
@@ -77,13 +179,16 @@ export default function DeviceDetails() {
       return;
     }
 
+
     let mounted = true;
+
 
     const loadDevice = async () => {
       try {
         const response = await api.get(
           `/api/v1/devices/${deviceId}`
         );
+
 
         const historyResponse = await api.get(
           `/api/v1/devices/${deviceId}/metrics/history`,
@@ -94,13 +199,21 @@ export default function DeviceDetails() {
           }
         );
 
+
+        const photosResponse = await api.get(
+          `/api/v1/devices/${deviceId}/photos`
+        );
+
+
         if (mounted) {
           setDevice(response.data);
           setHistory(historyResponse.data);
+          setPhotos(photosResponse.data);
           setError("");
         }
       } catch (error) {
         console.error(error);
+
 
         if (mounted) {
           setError("Unable to load device.");
@@ -113,12 +226,15 @@ export default function DeviceDetails() {
       }
     };
 
+
     loadDevice();
+
 
     const interval = window.setInterval(
       loadDevice,
       10_000
     );
+
 
     return () => {
       mounted = false;
@@ -126,21 +242,27 @@ export default function DeviceDetails() {
     };
   }, [deviceId, historyRange]);
 
+
   async function handleDelete() {
     if (!deviceId || !device) return;
+
 
     const confirmed = window.confirm(
       `Are you sure you want to remove "${device.name}"?`
     );
 
+
     if (!confirmed) return;
+
 
     try {
       setDeleting(true);
 
+
       await api.delete(
         `/api/v1/devices/${deviceId}`
       );
+
 
       navigate("/");
     } catch (error) {
@@ -150,6 +272,7 @@ export default function DeviceDetails() {
     }
   }
 
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0f1115] p-10 text-white">
@@ -157,6 +280,7 @@ export default function DeviceDetails() {
       </div>
     );
   }
+
 
   if (error || !device) {
     return (
@@ -168,6 +292,7 @@ export default function DeviceDetails() {
           ← Back to devices
         </Link>
 
+
         <p className="mt-8 text-red-400">
           {error || "Device not found."}
         </p>
@@ -175,29 +300,37 @@ export default function DeviceDetails() {
     );
   }
 
+
   const metrics = device.latest_metrics;
 
   const storage = device.storage || [];
 
+
   const statusClasses = {
     pending:
       "bg-yellow-500/10 text-yellow-400",
+
     online:
       "bg-green-500/10 text-green-400",
+
     offline:
       "bg-red-500/10 text-red-400",
   };
+
 
   const statusClass =
     statusClasses[
       device.status as keyof typeof statusClasses
     ] || "bg-gray-500/10 text-gray-400";
 
+
   return (
     <main className="min-h-screen bg-[#0f1115] px-8 py-10 text-white">
       <div className="mx-auto max-w-6xl">
 
+
         {/* Back */}
+
         <Link
           to="/"
           className="text-sm text-gray-400 hover:text-white"
@@ -205,12 +338,16 @@ export default function DeviceDetails() {
           ← Back to devices
         </Link>
 
+
         {/* Header */}
+
         <div className="mt-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+
           <div>
             <h1 className="text-3xl font-bold">
               {device.name}
             </h1>
+
 
             <p className="mt-2 text-gray-400">
               {device.hostname || "Not paired yet"}
@@ -219,12 +356,15 @@ export default function DeviceDetails() {
             </p>
           </div>
 
+
           <div className="flex items-center gap-3">
+
             <span
               className={`rounded-full px-4 py-2 text-sm ${statusClass}`}
             >
               ● {device.status}
             </span>
+
 
             <button
               onClick={handleDelete}
@@ -235,27 +375,38 @@ export default function DeviceDetails() {
                 ? "Removing..."
                 : "Remove Device"}
             </button>
+
           </div>
         </div>
 
+
         {/* Pending */}
+
         {device.status === "pending" && (
           <div className="mt-10 rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-6">
+
             <h2 className="text-lg font-semibold text-yellow-400">
               Device waiting for pairing
             </h2>
+
 
             <p className="mt-2 text-sm text-gray-400">
               Generate a pairing code from the dashboard
               and enter it in the HomeMesh Agent.
             </p>
+
           </div>
         )}
 
+
         {/* Device Metrics */}
+
         {device.status !== "pending" && (
           <>
+
+
             {/* Main Metrics */}
+
             <div className="mt-10 grid gap-5 md:grid-cols-3">
 
               <MetricCard
@@ -266,6 +417,7 @@ export default function DeviceDetails() {
                     : "--"
                 }
               />
+
 
               <MetricCard
                 title="Memory Usage"
@@ -286,6 +438,7 @@ export default function DeviceDetails() {
                 }
               />
 
+
               <MetricCard
                 title="Disk Usage"
                 value={
@@ -304,7 +457,9 @@ export default function DeviceDetails() {
                     : undefined
                 }
               />
+
             </div>
+
 
             {!metrics && (
               <p className="mt-6 text-sm text-gray-500">
@@ -313,17 +468,22 @@ export default function DeviceDetails() {
               </p>
             )}
 
+
             {/* Compute Information */}
+
             <section className="mt-8 rounded-2xl border border-white/10 bg-[#171a21] p-6">
+
               <div>
                 <h2 className="text-lg font-semibold">
                   Compute
                 </h2>
 
+
                 <p className="mt-1 text-sm text-gray-500">
                   Processor and system resource information
                 </p>
               </div>
+
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
@@ -336,6 +496,7 @@ export default function DeviceDetails() {
                   }
                 />
 
+
                 <Info
                   label="CPU Threads"
                   value={
@@ -344,6 +505,7 @@ export default function DeviceDetails() {
                       : "Not available"
                   }
                 />
+
 
                 <Info
                   label="CPU Frequency"
@@ -355,6 +517,7 @@ export default function DeviceDetails() {
                       : "Not available"
                   }
                 />
+
 
                 <Info
                   label="Uptime"
@@ -368,9 +531,12 @@ export default function DeviceDetails() {
                 />
 
               </div>
+
             </section>
 
+
             {/* Storage */}
+
             <section className="mt-8 rounded-2xl border border-white/10 bg-[#171a21] p-6">
 
               <div>
@@ -378,45 +544,151 @@ export default function DeviceDetails() {
                   Storage
                 </h2>
 
+
                 <p className="mt-1 text-sm text-gray-500">
                   Disk partitions and storage usage
                 </p>
               </div>
 
+
               {storage.length === 0 ? (
                 <div className="mt-6 rounded-xl bg-[#0f1115] p-6 text-center">
+
                   <p className="text-sm text-gray-500">
                     No storage information available.
                   </p>
+
                 </div>
               ) : (
+
                 <div className="mt-5 space-y-4">
+
                   {storage.map((partition) => (
                     <StorageCard
                       key={partition.mount_point}
                       partition={partition}
                     />
                   ))}
+
                 </div>
+
               )}
 
             </section>
 
+
+            {/* Photos */}
+
+            <section className="mt-8 rounded-2xl border border-white/10 bg-[#171a21] p-6">
+
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Photos
+                </h2>
+
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Photos discovered on this device
+                </p>
+              </div>
+
+
+              {photos.length === 0 ? (
+
+                <div className="mt-6 rounded-xl bg-[#0f1115] p-6 text-center">
+
+                  <p className="text-sm text-gray-500">
+                    No photos found.
+                  </p>
+
+                </div>
+
+              ) : (
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+                  {photos.map((photo) => (
+
+                    <div
+  key={photo.id}
+  onClick={() => {
+    if (photo.uploaded && photo.image_url) {
+      setSelectedPhoto(photo);
+    }
+  }}
+  className={`rounded-xl bg-[#0f1115] p-4 ${
+    photo.uploaded
+      ? "cursor-pointer transition hover:ring-2 hover:ring-white/20"
+      : ""
+  }`}
+>
+
+                      {photo.uploaded && photo.image_url ? (
+                        <PhotoImage
+                          imageUrl={photo.image_url}
+                          fileName={photo.file_name}
+                        />
+                      ) : (
+                        <div className="flex h-48 items-center justify-center rounded-lg bg-[#171a21]">
+                          <span className="text-4xl">
+                            📷
+                          </span>
+                        </div>
+                      )}
+
+
+                      <p
+                        className="mt-3 truncate text-sm font-medium"
+                        title={photo.file_name}
+                      >
+                        {photo.file_name}
+                      </p>
+
+
+                      <p className="mt-1 text-xs text-gray-500">
+                        {formatBytes(photo.file_size)}
+                      </p>
+
+
+                      {photo.modified_at && (
+                        <p className="mt-1 text-xs text-gray-600">
+                          {new Date(
+                            photo.modified_at
+                          ).toLocaleDateString()}
+                        </p>
+                      )}
+
+                    </div>
+
+                  ))}
+
+                </div>
+
+              )}
+
+            </section>
+
+
             {/* History */}
+
             <MetricCharts
               data={history}
               range={historyRange}
               onRangeChange={setHistoryRange}
             />
+
           </>
         )}
 
+
         {/* Device Information */}
+
         <div className="mt-8 rounded-2xl border border-white/10 bg-[#171a21] p-6">
 
           <h2 className="text-lg font-semibold">
             Device Information
           </h2>
+
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
 
@@ -428,6 +700,7 @@ export default function DeviceDetails() {
               }
             />
 
+
             <Info
               label="Operating System"
               value={
@@ -436,6 +709,7 @@ export default function DeviceDetails() {
               }
             />
 
+
             <Info
               label="Agent Version"
               value={
@@ -443,6 +717,7 @@ export default function DeviceDetails() {
                 "Not available"
               }
             />
+
 
             <Info
               label="Last Seen"
@@ -456,9 +731,45 @@ export default function DeviceDetails() {
             />
 
           </div>
+
         </div>
 
+
       </div>
+
+      {selectedPhoto && selectedPhoto.image_url && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-6"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setSelectedPhoto(null)}
+            className="absolute right-6 top-6 z-10 rounded-full bg-white/10 px-4 py-2 text-2xl text-white transition hover:bg-white/20"
+            aria-label="Close photo viewer"
+          >
+            ✕
+          </button>
+
+          <div
+            className="relative flex max-h-[90vh] max-w-[90vw] flex-col items-center"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <PhotoImage
+              imageUrl={selectedPhoto.image_url}
+              fileName={selectedPhoto.file_name}
+            />
+
+            <p className="mt-4 text-sm text-gray-300">
+              {selectedPhoto.file_name}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Click outside or ✕ to close
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -477,6 +788,7 @@ function MetricCard({
   value: string;
   details?: string;
 }) {
+
   return (
     <div className="rounded-2xl border border-white/10 bg-[#171a21] p-6">
 
@@ -484,9 +796,11 @@ function MetricCard({
         {title}
       </p>
 
+
       <p className="mt-3 text-4xl font-bold">
         {value}
       </p>
+
 
       {details && (
         <p className="mt-2 text-sm text-gray-500">
@@ -508,13 +822,16 @@ function StorageCard({
 }: {
   partition: StoragePartition;
 }) {
+
   const usage = Math.min(
     Math.max(partition.usage_percent, 0),
     100
   );
 
+
   const isCritical = usage >= 90;
   const isWarning = usage >= 80;
+
 
   return (
     <div className="rounded-xl bg-[#0f1115] p-5">
@@ -522,16 +839,21 @@ function StorageCard({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
         <div>
+
           <p className="text-lg font-semibold">
             {partition.mount_point}
           </p>
 
+
           <p className="mt-1 text-xs text-gray-500">
             {partition.filesystem || "Unknown filesystem"}
           </p>
+
         </div>
 
+
         <div className="text-left sm:text-right">
+
           <p
             className={`text-lg font-semibold ${
               isCritical
@@ -544,16 +866,20 @@ function StorageCard({
             {usage.toFixed(1)}%
           </p>
 
+
           <p className="mt-1 text-xs text-gray-500">
             {formatBytes(partition.used_bytes)}
             {" / "}
             {formatBytes(partition.total_bytes)}
           </p>
+
         </div>
 
       </div>
 
+
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/5">
+
         <div
           className={`h-full rounded-full ${
             isCritical
@@ -566,7 +892,9 @@ function StorageCard({
             width: `${usage}%`,
           }}
         />
+
       </div>
+
 
       <p className="mt-2 text-xs text-gray-500">
         {formatBytes(partition.free_bytes)} free
@@ -588,12 +916,14 @@ function Info({
   label: string;
   value: string;
 }) {
+
   return (
     <div className="rounded-xl bg-[#0f1115] p-4">
 
       <p className="text-xs text-gray-500">
         {label}
       </p>
+
 
       <p className="mt-1 text-sm">
         {value}
@@ -609,9 +939,11 @@ function Info({
    ========================================================= */
 
 function formatBytes(bytes: number): string {
+
   if (bytes === 0) {
     return "0 B";
   }
+
 
   const units = [
     "B",
@@ -621,12 +953,14 @@ function formatBytes(bytes: number): string {
     "TB",
   ];
 
+
   const index = Math.min(
     Math.floor(
       Math.log(bytes) / Math.log(1024)
     ),
     units.length - 1
   );
+
 
   return `${(
     bytes /
@@ -640,35 +974,44 @@ function formatBytes(bytes: number): string {
    ========================================================= */
 
 function formatUptime(seconds: number): string {
+
   if (seconds < 60) {
     return `${seconds}s`;
   }
+
 
   const minutes = Math.floor(
     seconds / 60
   );
 
+
   if (minutes < 60) {
     return `${minutes}m`;
   }
+
 
   const hours = Math.floor(
     minutes / 60
   );
 
+
   const remainingMinutes =
     minutes % 60;
+
 
   if (hours < 24) {
     return `${hours}h ${remainingMinutes}m`;
   }
 
+
   const days = Math.floor(
     hours / 24
   );
 
+
   const remainingHours =
     hours % 24;
+
 
   return `${days}d ${remainingHours}h`;
 }
@@ -681,23 +1024,28 @@ function formatUptime(seconds: number): string {
 function formatLastSeen(
   lastSeen: string
 ): string {
+
   const diff = Math.floor(
     (Date.now() -
       new Date(lastSeen).getTime()) /
       1000
   );
 
+
   if (diff < 10) {
     return "Just now";
   }
+
 
   if (diff < 60) {
     return `${diff} seconds ago`;
   }
 
+
   const minutes = Math.floor(
     diff / 60
   );
+
 
   if (minutes < 60) {
     return `${minutes} minute${
@@ -705,9 +1053,11 @@ function formatLastSeen(
     } ago`;
   }
 
+
   const hours = Math.floor(
     minutes / 60
   );
+
 
   if (hours < 24) {
     return `${hours} hour${
@@ -715,9 +1065,11 @@ function formatLastSeen(
     } ago`;
   }
 
+
   const days = Math.floor(
     hours / 24
   );
+
 
   return `${days} day${
     days === 1 ? "" : "s"

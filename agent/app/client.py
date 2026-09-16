@@ -1,6 +1,8 @@
 import httpx
 
 from app.config import API_URL
+import mimetypes
+import os
 
 
 async def pair_device(
@@ -108,3 +110,51 @@ async def send_photos(
         response.raise_for_status()
 
         return response.json()
+
+
+async def upload_photo(
+    device_id,
+    device_token,
+    file_path,
+):
+    url = (
+        f"{API_URL}/api/v1/devices/"
+        f"{device_id}/photos/upload"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {device_token}"
+    }
+
+    mime_type, _ = mimetypes.guess_type(file_path)
+
+    if mime_type is None:
+        mime_type = "application/octet-stream"
+
+    async with httpx.AsyncClient(
+        timeout=120.0
+    ) as client:
+
+        with open(file_path, "rb") as photo_file:
+            files = {
+                "file": (
+                    os.path.basename(file_path),
+                    photo_file,
+                    mime_type,
+                )
+            }
+
+            data = {
+                "file_path": file_path
+            }
+
+            response = await client.post(
+                url,
+                headers=headers,
+                data=data,
+                files=files,
+            )
+
+            response.raise_for_status()
+
+            return response.json()
