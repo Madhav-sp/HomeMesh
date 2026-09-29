@@ -2,14 +2,15 @@ import os
 import uuid
 from uuid import UUID
 
-from fastapi import ( APIRouter,
+from fastapi import (
+    APIRouter,
     Depends,
     File,
     Form,
     HTTPException,
     UploadFile,
     status,
-    )
+)
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -42,6 +43,7 @@ from app.modules.devices.service import (
     register_device,
 )
 
+from app.modules.devices.transfer_model import Transfer
 from app.modules.users.models import User
 
 
@@ -315,7 +317,6 @@ def get_device(
             "created_at": heartbeat.created_at,
         }
 
-    # Get latest storage information
     storage = repository.get_device_storage(
         db=db,
         device_id=device.id,
@@ -490,20 +491,21 @@ def update_device_photos(
             for photo in data.photos
         ],
     )
+
     photos_to_upload = [
-    {
-        "id": photo.id,
-        "file_path": photo.file_path,
-    }
-    for photo in photo_records
-    if photo.storage_path is None
+        {
+            "id": photo.id,
+            "file_path": photo.file_path,
+        }
+        for photo in photo_records
+        if photo.storage_path is None
     ]
 
     return {
-    "device_id": device_id,
-    "photos": len(photo_records),
-    "photos_to_upload": photos_to_upload,
-}
+        "device_id": device_id,
+        "photos": len(photo_records),
+        "photos_to_upload": photos_to_upload,
+    }
 
 
 # =========================================================
@@ -534,25 +536,69 @@ def get_device_photos(
         device_id=device_id,
     )
 
-    return [
-        {
-            "id": photo.id,
-        "file_name": photo.file_name,
-        "file_path": photo.file_path,
-        "file_size": photo.file_size,
-        "mime_type": photo.mime_type,
-        "modified_at": photo.modified_at,
-        "created_at": photo.created_at,
-        "uploaded": photo.storage_path is not None,
-        "image_url": (
-            f"/api/v1/devices/{device_id}/photos/{photo.id}/image"
-            if photo.storage_path
-            else None
-        ),
-        }
-        for photo in photos
-    ]
+    response = []
 
+    for photo in photos:
+
+        image_url = None
+
+        # -----------------------------------------------------
+        # Normal photo
+        # -----------------------------------------------------
+
+        if photo.storage_path:
+            image_url = (
+                f"/api/v1/devices/"
+                f"{device_id}/photos/"
+                f"{photo.id}/image"
+            )
+
+        else:
+            # -------------------------------------------------
+            # Check whether this photo came from a completed
+            # HomeMesh transfer.
+            #
+            # The transferred file already exists on the
+            # backend because the browser originally uploaded
+            # it to create the transfer.
+            # -------------------------------------------------
+
+            transfer = db.scalar(
+                repository.select(
+                    Transfer
+                ).where(
+                    Transfer.target_device_id == device_id,
+                    Transfer.file_name == photo.file_name,
+                    Transfer.status == "completed",
+                ).order_by(
+                    Transfer.completed_at.desc()
+                )
+            ) if hasattr(repository, "select") else None
+
+            if transfer:
+                image_url = (
+                    f"/api/v1/devices/"
+                    f"{device_id}/photos/"
+                    f"{photo.id}/image"
+                )
+
+        response.append(
+            {
+                "id": photo.id,
+                "file_name": photo.file_name,
+                "file_path": photo.file_path,
+                "file_size": photo.file_size,
+                "mime_type": photo.mime_type,
+                "modified_at": photo.modified_at,
+                "created_at": photo.created_at,
+                "uploaded": (
+                    photo.storage_path is not None
+                ),
+                "image_url": image_url,
+            }
+        )
+
+    return response
 
 
 # =========================================================
@@ -677,7 +723,9 @@ async def upload_device_photo(
         with open(destination, "wb") as output:
 
             while True:
-                chunk = await file.read(1024 * 1024)
+                chunk = await file.read(
+                    1024 * 1024
+                )
 
                 if not chunk:
                     break
@@ -691,7 +739,9 @@ async def upload_device_photo(
                         os.remove(destination)
 
                     raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        status_code=(
+                            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                        ),
                         detail="Image is larger than 25 MB.",
                     )
 
@@ -723,9 +773,6 @@ async def upload_device_photo(
 # =========================================================
 # DEVICE PHOTO - SERVE IMAGE
 # =========================================================
-
-from fastapi.responses import FileResponse
-
 
 @router.get(
     "/{device_id}/photos/{photo_id}/image",
@@ -775,257 +822,82 @@ def get_device_photo_image(
             detail="Photo not found.",
         )
 
-    if not photo.storage_path:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Photo has not been uploaded.",
+    # -----------------------------------------------------
+    # NORMAL BACKEND PHOTO
+    # -----------------------------------------------------
+
+    if photo.storage_path:
+
+        full_path = os.path.abspath(
+            os.path.join(
+                PHOTO_STORAGE_ROOT,
+                photo.storage_path,
+            )
+        )
+
+        # Prevent path traversal
+        if not full_path.startswith(
+            PHOTO_STORAGE_ROOT + os.sep
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid photo path.",
+            )
+
+        if not os.path.isfile(full_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Image file not found.",
+            )
+
+        return FileResponse(
+            path=full_path,
+            media_type=(
+                photo.mime_type
+                or "application/octet-stream"
+            ),
+            filename=photo.file_name,
         )
 
     # -----------------------------------------------------
-    # Build absolute storage path
+    # TRANSFERRED PHOTO FALLBACK
     # -----------------------------------------------------
 
-    full_path = os.path.abspath(
-        os.path.join(
-            PHOTO_STORAGE_ROOT,
-            photo.storage_path,
-        )
-    )
+    transfer = db.query(Transfer).filter(
+        Transfer.target_device_id == device_id,
+        Transfer.file_name == photo.file_name,
+        Transfer.status == "completed",
+    ).order_by(
+        Transfer.completed_at.desc()
+    ).first()
 
-    # Prevent path traversal
-    if not full_path.startswith(
-        PHOTO_STORAGE_ROOT
-        + os.sep
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid photo path.",
+    if transfer:
+
+        transfer_file = os.path.abspath(
+            transfer.file_path
         )
 
-    if not os.path.isfile(full_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Image file not found.",
+        if not os.path.isfile(transfer_file):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Transferred image file not found.",
+            )
+
+        return FileResponse(
+            path=transfer_file,
+            media_type=(
+                transfer.mime_type
+                or photo.mime_type
+                or "application/octet-stream"
+            ),
+            filename=photo.file_name,
         )
 
-    return FileResponse(
-        path=full_path,
-        media_type=photo.mime_type or "application/octet-stream",
-        filename=photo.file_name,
-    )
+    # -----------------------------------------------------
+    # Nothing available
+    # -----------------------------------------------------
 
-
-# =========================================================
-# DEVICE PHOTOS - IMAGE UPLOAD
-# =========================================================
-
-PHOTO_STORAGE_ROOT = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "storage",
-        "photos",
-    )
-)
-
-
-@router.post(
-    "/{device_id}/photos/upload",
-)
-async def upload_device_photo(
-    device_id: UUID,
-    file_path: str = Form(...),
-    file: UploadFile = File(...),
-    current_device: Device = Depends(get_current_device),
-    db: Session = Depends(get_db),
-):
-    if current_device.id != device_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Device token does not match device.",
-        )
-
-    photos = repository.get_device_photos(
-        db=db,
-        device_id=device_id,
-    )
-
-    photo = next(
-        (
-            item
-            for item in photos
-            if item.file_path == file_path
-        ),
-        None,
-    )
-
-    if photo is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Photo metadata not found.",
-        )
-
-    allowed_types = {
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "image/bmp",
-        "image/tiff",
-    }
-
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsupported image type.",
-        )
-
-    device_directory = os.path.join(
-        PHOTO_STORAGE_ROOT,
-        str(device_id),
-    )
-
-    os.makedirs(
-        device_directory,
-        exist_ok=True,
-    )
-
-    extension = os.path.splitext(
-        photo.file_name
-    )[1].lower()
-
-    safe_filename = (
-        str(uuid.uuid4()) + extension
-    )
-
-    destination = os.path.join(
-        device_directory,
-        safe_filename,
-    )
-
-    max_file_size = 25 * 1024 * 1024
-    total_size = 0
-
-    try:
-        with open(destination, "wb") as output:
-            while True:
-                chunk = await file.read(1024 * 1024)
-
-                if not chunk:
-                    break
-
-                total_size += len(chunk)
-
-                if total_size > max_file_size:
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail="Image is larger than 25 MB.",
-                    )
-
-                output.write(chunk)
-
-    except Exception:
-        if os.path.exists(destination):
-            os.remove(destination)
-        raise
-
-    finally:
-        await file.close()
-
-    photo.storage_path = os.path.relpath(
-        destination,
-        PHOTO_STORAGE_ROOT,
-    )
-
-    db.commit()
-    db.refresh(photo)
-
-    return {
-        "photo_id": photo.id,
-        "file_name": photo.file_name,
-        "uploaded": True,
-        "size": total_size,
-    }
-
-
-# =========================================================
-# DEVICE PHOTOS - IMAGE VIEW
-# =========================================================
-
-@router.get(
-    "/{device_id}/photos/{photo_id}/image",
-)
-def get_device_photo_image(
-    device_id: UUID,
-    photo_id: UUID,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    device = repository.get_by_id(
-        db=db,
-        device_id=device_id,
-    )
-
-    if device is None or device.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Device not found.",
-        )
-
-    photos = repository.get_device_photos(
-        db=db,
-        device_id=device_id,
-    )
-
-    photo = next(
-        (
-            item
-            for item in photos
-            if item.id == photo_id
-        ),
-        None,
-    )
-
-    if photo is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Photo not found.",
-        )
-
-    if not photo.storage_path:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Photo has not been uploaded.",
-        )
-
-    full_path = os.path.abspath(
-        os.path.join(
-            PHOTO_STORAGE_ROOT,
-            photo.storage_path,
-        )
-    )
-
-    if not full_path.startswith(
-        PHOTO_STORAGE_ROOT + os.sep
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid photo path.",
-        )
-
-    if not os.path.isfile(full_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Image file not found.",
-        )
-
-    return FileResponse(
-        path=full_path,
-        media_type=(
-            photo.mime_type
-            or "application/octet-stream"
-        ),
-        filename=photo.file_name,
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Photo has not been uploaded.",
     )

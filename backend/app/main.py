@@ -9,7 +9,7 @@ from app.core.logging.logger import logger
 from app.modules.devices.background import offline_monitor
 from app.modules.devices.router import router as devices_router
 from app.modules.users.router import router as user_router
-
+from app.modules.devices.transfer_router import router as transfer_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,7 +53,7 @@ app.add_middleware(
 app.include_router(api_router)
 app.include_router(user_router)
 app.include_router(devices_router)
-
+app.include_router(transfer_router)
 
 @app.get("/", tags=["Root"])
 async def root():

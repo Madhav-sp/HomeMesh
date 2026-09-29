@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import DeviceCard from "../components/DeviceCard";
 import Sidebar from "../components/Sidebar";
@@ -24,17 +25,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [showCreateDevice, setShowCreateDevice] =
-    useState(false);
+  const [showCreateDevice, setShowCreateDevice] = useState(false);
 
-  const [pairingDeviceId, setPairingDeviceId] =
-    useState<string | null>(null);
+  const [pairingDeviceId, setPairingDeviceId] = useState<string | null>(null);
 
   async function loadDevices() {
     try {
-      const response = await api.get(
-        "/api/v1/devices"
-      );
+      const response = await api.get("/api/v1/devices");
 
       setDevices(response.data);
       setError("");
@@ -49,10 +46,7 @@ export default function Dashboard() {
   useEffect(() => {
     loadDevices();
 
-    const interval = window.setInterval(
-      loadDevices,
-      10_000
-    );
+    const interval = window.setInterval(loadDevices, 10_000);
 
     return () => {
       window.clearInterval(interval);
@@ -88,15 +82,9 @@ export default function Dashboard() {
     const disk = device.latest_metrics?.disk_percent;
 
     return (
-      (cpu !== null &&
-        cpu !== undefined &&
-        cpu >= 80) ||
-      (memory !== null &&
-        memory !== undefined &&
-        memory >= 80) ||
-      (disk !== null &&
-        disk !== undefined &&
-        disk >= 90)
+      (cpu !== null && cpu !== undefined && cpu >= 80) ||
+      (memory !== null && memory !== undefined && memory >= 80) ||
+      (disk !== null && disk !== undefined && disk >= 90)
     );
   }).length;
 
@@ -123,18 +111,29 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <button
-              onClick={() =>
-                setShowCreateDevice(true)
-              }
-              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:bg-gray-200"
-            >
-              <span className="text-xl leading-none">
-                +
-              </span>
+            <div className="flex items-center gap-3">
 
-              Add Device
-            </button>
+              {/* Upload Photo */}
+              <Link
+                to="/upload"
+                className="rounded-xl border border-white/10 bg-[#171a21] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+              >
+                Upload Photo
+              </Link>
+
+              {/* Add Device */}
+              <button
+                onClick={() => setShowCreateDevice(true)}
+                className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:bg-gray-200"
+              >
+                <span className="text-xl leading-none">
+                  +
+                </span>
+
+                Add Device
+              </button>
+
+            </div>
           </header>
 
           {/* Loading */}
@@ -191,6 +190,7 @@ export default function Dashboard() {
               {/* No Devices */}
               {devices.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center">
+
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-2xl">
                     +
                   </div>
@@ -205,20 +205,21 @@ export default function Dashboard() {
                   </p>
 
                   <button
-                    onClick={() =>
-                      setShowCreateDevice(true)
-                    }
+                    onClick={() => setShowCreateDevice(true)}
                     className="mt-6 rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-gray-200"
                   >
                     + Add Your First Device
                   </button>
+
                 </div>
               )}
 
               {/* Devices */}
               {devices.length > 0 && (
                 <section>
+
                   <div className="mb-5 flex items-center justify-between">
+
                     <div>
                       <h2 className="text-xl font-semibold">
                         Your Devices
@@ -232,6 +233,7 @@ export default function Dashboard() {
                     <p className="text-sm text-gray-500">
                       Refreshing every 10s
                     </p>
+
                   </div>
 
                   <div className="grid gap-5 md:grid-cols-2">
@@ -242,8 +244,10 @@ export default function Dashboard() {
                       />
                     ))}
                   </div>
+
                 </section>
               )}
+
             </>
           )}
         </div>
@@ -252,9 +256,7 @@ export default function Dashboard() {
       {/* Create Device */}
       {showCreateDevice && (
         <CreateDeviceModal
-          onClose={() =>
-            setShowCreateDevice(false)
-          }
+          onClose={() => setShowCreateDevice(false)}
           onDeviceCreated={handleDeviceCreated}
         />
       )}
@@ -284,12 +286,15 @@ function SummaryCard({
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-[#171a21] p-5">
+
       <div className="flex items-center justify-between">
+
         <p className="text-sm text-gray-500">
           {label}
         </p>
 
         <span className="h-2 w-2 rounded-full bg-white/40" />
+
       </div>
 
       <p className="mt-3 text-3xl font-bold">
@@ -299,6 +304,7 @@ function SummaryCard({
       <p className="mt-1 text-xs text-gray-500">
         {description}
       </p>
+
     </div>
   );
 }

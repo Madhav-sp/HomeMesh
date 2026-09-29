@@ -158,3 +158,92 @@ async def upload_photo(
             response.raise_for_status()
 
             return response.json()
+
+
+async def get_pending_transfers(
+    device_id,
+    device_token,
+):
+    url = (
+        f"{API_URL}/api/v1/transfers/pending"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {device_token}"
+    }
+
+    async with httpx.AsyncClient(
+        timeout=30.0
+    ) as client:
+        response = await client.get(
+            url,
+            headers=headers,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+
+async def download_transfer(
+    device_id,
+    device_token,
+    transfer_id,
+    destination,
+):
+    url = (
+        f"{API_URL}/api/v1/transfers/"
+        f"{transfer_id}/download"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {device_token}"
+    }
+
+    async with httpx.AsyncClient(
+        timeout=120.0
+    ) as client:
+
+        response = await client.get(
+            url,
+            headers=headers,
+        )
+
+        response.raise_for_status()
+
+        with open(destination, "wb") as output:
+            output.write(response.content)
+
+        return {
+            "transfer_id": transfer_id,
+            "destination": destination,
+            "size": len(response.content),
+        }
+
+
+async def complete_transfer(
+    device_id,
+    device_token,
+    transfer_id,
+):
+    url = (
+        f"{API_URL}/api/v1/transfers/"
+        f"{transfer_id}/complete"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {device_token}"
+    }
+
+    async with httpx.AsyncClient(
+        timeout=30.0
+    ) as client:
+
+        response = await client.post(
+            url,
+            headers=headers,
+        )
+
+        response.raise_for_status()
+
+        return response.json()

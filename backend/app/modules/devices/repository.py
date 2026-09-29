@@ -8,6 +8,7 @@ from app.modules.devices.models import Device
 from app.modules.devices.heartbeat_model import Heartbeat
 from app.modules.devices.storage_model import DeviceStorage
 from app.modules.devices.photo_model import DevicePhoto
+from app.modules.devices.transfer_model import Transfer
 
 
 # =========================================================
@@ -202,32 +203,62 @@ def sync_device_photos(
 
     synced_photos = []
 
+    # ---------------------------------------------------------
     # Remove photos that no longer exist on the device
+    # ---------------------------------------------------------
+
     for file_path, photo in existing_photos.items():
         if file_path not in current_paths:
             db.delete(photo)
 
+    # ---------------------------------------------------------
+    # Sync current photos
+    # ---------------------------------------------------------
+
     for item in photos_data:
+
         file_path = item["file_path"]
+
         existing = existing_photos.get(file_path)
 
         if existing:
+
             changed = (
                 existing.file_size != item["file_size"]
-                or existing.modified_at != item.get("modified_at")
+                or existing.modified_at != item.get(
+                    "modified_at"
+                )
             )
 
             existing.file_name = item["file_name"]
             existing.file_size = item["file_size"]
             existing.mime_type = item.get("mime_type")
-            existing.modified_at = item.get("modified_at")
+            existing.modified_at = item.get(
+                "modified_at"
+            )
 
-            if changed:
+            # -------------------------------------------------
+            # Only clear backend storage when the actual file
+            # has changed AND this is a normal device photo.
+            #
+            # Transferred photos already exist on the device,
+            # so they don't need to be uploaded again.
+            # -------------------------------------------------
+
+            if changed and not item.get(
+                "is_transferred",
+                False,
+            ):
                 existing.storage_path = None
 
             synced_photos.append(existing)
 
         else:
+
+            # -------------------------------------------------
+            # New photo
+            # -------------------------------------------------
+
             photo = DevicePhoto(
                 device_id=device_id,
                 file_name=item["file_name"],
@@ -235,7 +266,18 @@ def sync_device_photos(
                 file_size=item["file_size"],
                 mime_type=item.get("mime_type"),
                 modified_at=item.get("modified_at"),
-                storage_path=None,
+
+                # Transferred files already exist on the
+                # target device. Normal photos need their
+                # bytes uploaded to backend storage.
+                storage_path=(
+                    None
+                    if item.get(
+                        "is_transferred",
+                        False,
+                    )
+                    else None
+                ),
             )
 
             db.add(photo)
@@ -248,6 +290,7 @@ def sync_device_photos(
 
     return synced_photos
 
+
 def get_device_photos(
     db: Session,
     device_id: UUID,
@@ -258,6 +301,88 @@ def get_device_photos(
             .where(
                 DevicePhoto.device_id == device_id
             )
-            .order_by(DevicePhoto.modified_at.desc())
+            .order_by(
+                DevicePhoto.modified_at.desc()
+            )
+        )
+    )
+
+
+# =========================================================
+# TRANSFERS
+# =========================================================
+
+def create_transfer(
+    db: Session,
+    owner_id: UUID,
+    target_device_id: UUID,
+    file_name: str,
+    file_path: str,
+    file_size: int,
+    mime_type: str | None,
+) -> Transfer:
+
+    transfer = Transfer(
+        owner_id=owner_id,
+        target_device_id=target_device_id,
+        file_name=file_name,
+        file_path=file_path,
+        file_size=file_size,
+        mime_type=mime_type,
+        status="pending",
+    )
+
+    db.add(transfer)
+    db.commit()
+    db.refresh(transfer)
+
+    return transfer
+
+
+def get_pending_transfers(
+    db: Session,
+    device_id: UUID,
+) -> list[Transfer]:
+
+    return list(
+        db.scalars(
+            select(Transfer)
+            .where(
+                Transfer.target_device_id == device_id,
+                Transfer.status == "pending",
+            )
+            .order_by(
+                Transfer.created_at.asc()
+            )
+        )
+    )
+
+
+def get_transfer(
+    db: Session,
+    transfer_id: UUID,
+) -> Transfer | None:
+
+    return db.scalar(
+        select(Transfer).where(
+            Transfer.id == transfer_id
+        )
+    )
+
+
+def get_user_transfers(
+    db: Session,
+    owner_id: UUID,
+) -> list[Transfer]:
+
+    return list(
+        db.scalars(
+            select(Transfer)
+            .where(
+                Transfer.owner_id == owner_id
+            )
+            .order_by(
+                Transfer.created_at.desc()
+            )
         )
     )

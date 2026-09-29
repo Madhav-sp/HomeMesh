@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import Register from "./pages/Register";
+import Upload from "./pages/Upload";
 function App() {
   return (
     <AuthProvider>
@@ -29,6 +30,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DeviceDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/upload"
+            element={
+              <ProtectedRoute>
+                <Upload />
               </ProtectedRoute>
             }
           />

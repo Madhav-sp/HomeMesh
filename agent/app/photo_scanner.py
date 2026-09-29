@@ -31,12 +31,42 @@ def scan_photos(
     max_photos=1000,
 ):
     if directories is None:
+        agent_root = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+            )
+        )
+
+        transfer_directory = os.path.join(
+            agent_root,
+            "storage",
+            "transfers",
+        )
+
         directories = [
             os.path.expanduser("~/Pictures"),
-            
+            transfer_directory,
         ]
+    else:
+        agent_root = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+            )
+        )
+
+        transfer_directory = os.path.join(
+            agent_root,
+            "storage",
+            "transfers",
+        )
 
     photos = []
+
+    transfer_directory_abs = os.path.abspath(
+        transfer_directory
+    )
 
     for directory in directories:
         if not os.path.exists(directory):
@@ -55,7 +85,9 @@ def scan_photos(
                 if len(photos) >= max_photos:
                     return photos
 
-                extension = os.path.splitext(file_name)[1].lower()
+                extension = os.path.splitext(
+                    file_name
+                )[1].lower()
 
                 if extension not in PHOTO_EXTENSIONS:
                     continue
@@ -72,6 +104,13 @@ def scan_photos(
                         file_path
                     )
 
+                    is_transferred = (
+                        os.path.abspath(file_path)
+                        .startswith(
+                            transfer_directory_abs
+                        )
+                    )
+
                     photos.append(
                         {
                             "file_name": file_name,
@@ -81,6 +120,7 @@ def scan_photos(
                             "modified_at": datetime.fromtimestamp(
                                 stat.st_mtime
                             ).isoformat(),
+                            "is_transferred": is_transferred,
                         }
                     )
 
