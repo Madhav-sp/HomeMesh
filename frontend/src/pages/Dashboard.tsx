@@ -5,6 +5,17 @@ import DeviceCard from "../components/DeviceCard";
 import Sidebar from "../components/Sidebar";
 import CreateDeviceModal from "../components/CreateDeviceModal";
 import AddDeviceModal from "../components/AddDeviceModal";
+import {
+  Server,
+  Wifi,
+  WifiOff,
+  Clock,
+  AlertTriangle,
+  Plus,
+  UploadCloud,
+  Laptop,
+  RefreshCw,
+} from "lucide-react";
 
 type Device = {
   id: string;
@@ -88,64 +99,107 @@ export default function Dashboard() {
     );
   }).length;
 
+  const summaryCards = [
+    {
+      label: "Total Devices",
+      value: totalDevices,
+      description: "Registered devices",
+      icon: Server,
+      iconColor: "text-blue-400",
+      borderColor: "border-blue-500/20",
+    },
+    {
+      label: "Online",
+      value: onlineDevices,
+      description: "Connected & active",
+      icon: Wifi,
+      iconColor: "text-emerald-400",
+      borderColor: "border-emerald-500/20",
+    },
+    {
+      label: "Offline",
+      value: offlineDevices,
+      description: "Not responding",
+      icon: WifiOff,
+      iconColor: "text-red-400",
+      borderColor: "border-red-500/20",
+    },
+    {
+      label: "Pending",
+      value: pendingDevices,
+      description: "Awaiting pairing",
+      icon: Clock,
+      iconColor: "text-amber-400",
+      borderColor: "border-amber-500/20",
+    },
+    {
+      label: "Alerts",
+      value: alertCount,
+      description: "High resource usage",
+      icon: AlertTriangle,
+      iconColor: "text-orange-400",
+      borderColor: "border-orange-500/20",
+    },
+  ];
+
   return (
-    <main className="min-h-screen bg-[#0f1115] text-white">
+    <div className="page-bg flex min-h-screen text-slate-100">
       <Sidebar />
 
-      <div className="px-8 py-10 transition-all duration-300 md:ml-0">
-        <div className="mx-auto max-w-6xl">
-
+      <main className="flex-1 px-6 py-8 md:px-10 md:ml-64">
+        <div className="relative z-10 mx-auto max-w-6xl animate-fadeIn">
           {/* Header */}
-          <header className="mb-8 flex items-start justify-between gap-6">
+          <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm text-gray-500">
-                HomeMesh
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-blue-400">
+                  Dashboard
+                </span>
+              </div>
 
-              <h1 className="mt-2 text-3xl font-bold">
-                Device Dashboard
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">
+                Connected Devices
               </h1>
 
-              <p className="mt-2 text-gray-400">
-                Monitor your connected devices.
+              <p className="mt-1 text-xs text-slate-400">
+                Monitor machine status, resource utilization, and compute workloads in real time.
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-
-              {/* Upload Photo */}
+            <div className="flex items-center gap-2.5">
+              {/* Upload File */}
               <Link
                 to="/upload"
-                className="rounded-xl border border-white/10 bg-[#171a21] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700 hover:text-white"
               >
-                Upload Photo
+                <UploadCloud className="h-4 w-4" />
+                Upload File
               </Link>
 
               {/* Add Device */}
               <button
                 onClick={() => setShowCreateDevice(true)}
-                className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:bg-gray-200"
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-500"
               >
-                <span className="text-xl leading-none">
-                  +
-                </span>
-
+                <Plus className="h-4 w-4" />
                 Add Device
               </button>
-
             </div>
           </header>
 
           {/* Loading */}
           {loading && (
-            <p className="text-gray-400">
-              Loading devices...
-            </p>
+            <div className="flex h-40 items-center justify-center rounded-xl border border-slate-800 bg-[#151c28]">
+              <div className="flex items-center gap-2.5 text-xs text-slate-400">
+                <RefreshCw className="h-4 w-4 animate-spin text-blue-400" />
+                Loading connected devices...
+              </div>
+            </div>
           )}
 
           {/* Error */}
           {error && (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-400">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400 animate-fadeIn">
               {error}
             </div>
           )}
@@ -153,90 +207,79 @@ export default function Dashboard() {
           {/* Dashboard Summary */}
           {!loading && !error && (
             <>
-              <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {summaryCards.map((card) => {
+                  const IconComp = card.icon;
+                  return (
+                    <div
+                      key={card.label}
+                      className="glass-card rounded-xl p-4 transition-all duration-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                          {card.label}
+                        </p>
+                        <IconComp className={`h-4 w-4 ${card.iconColor}`} />
+                      </div>
 
-                <SummaryCard
-                  label="Total Devices"
-                  value={totalDevices}
-                  description="Registered devices"
-                />
+                      <p className="mt-2 text-2xl font-bold tracking-tight text-white">
+                        {card.value}
+                      </p>
 
-                <SummaryCard
-                  label="Online"
-                  value={onlineDevices}
-                  description="Currently connected"
-                />
-
-                <SummaryCard
-                  label="Offline"
-                  value={offlineDevices}
-                  description="Not responding"
-                />
-
-                <SummaryCard
-                  label="Pending"
-                  value={pendingDevices}
-                  description="Waiting for pairing"
-                />
-
-                <SummaryCard
-                  label="Alerts"
-                  value={alertCount}
-                  description="Devices needing attention"
-                />
-
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        {card.description}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* No Devices */}
               {devices.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center">
-
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-2xl">
-                    +
+                <div className="glass-card rounded-xl border-dashed border-slate-700 p-12 text-center animate-slideUp">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <Laptop className="h-6 w-6" />
                   </div>
 
-                  <h2 className="mt-5 text-lg font-semibold">
-                    No devices yet
+                  <h2 className="mt-4 text-base font-semibold text-white">
+                    No devices paired yet
                   </h2>
 
-                  <p className="mt-2 text-sm text-gray-500">
-                    Add a device and pair the HomeMesh
-                    Agent to start monitoring it.
+                  <p className="mt-1.5 text-xs text-slate-400 max-w-sm mx-auto">
+                    Add a device and pair the HomeMesh Agent to monitor CPU, memory, storage, and transfers.
                   </p>
 
                   <button
                     onClick={() => setShowCreateDevice(true)}
-                    className="mt-6 rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-gray-200"
+                    className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-500 transition-colors"
                   >
-                    + Add Your First Device
+                    <Plus className="h-4 w-4" />
+                    Add Your First Device
                   </button>
-
                 </div>
               )}
 
-              {/* Devices */}
+              {/* Devices Grid */}
               {devices.length > 0 && (
-                <section>
-
-                  <div className="mb-5 flex items-center justify-between">
-
+                <section className="animate-fadeIn">
+                  <div className="mb-4 flex items-center justify-between">
                     <div>
-                      <h2 className="text-xl font-semibold">
-                        Your Devices
+                      <h2 className="text-base font-semibold tracking-tight text-white">
+                        Registered Devices
                       </h2>
 
-                      <p className="mt-1 text-sm text-gray-500">
-                        Live device status and resource usage
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        Real-time status and health monitors
                       </p>
                     </div>
 
-                    <p className="text-sm text-gray-500">
-                      Refreshing every 10s
-                    </p>
-
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                      Auto-refreshing (10s)
+                    </div>
                   </div>
 
-                  <div className="grid gap-5 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {devices.map((device) => (
                       <DeviceCard
                         key={device.id}
@@ -244,14 +287,12 @@ export default function Dashboard() {
                       />
                     ))}
                   </div>
-
                 </section>
               )}
-
             </>
           )}
         </div>
-      </div>
+      </main>
 
       {/* Create Device */}
       {showCreateDevice && (
@@ -271,40 +312,6 @@ export default function Dashboard() {
           }}
         />
       )}
-    </main>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  description,
-}: {
-  label: string;
-  value: number;
-  description: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-[#171a21] p-5">
-
-      <div className="flex items-center justify-between">
-
-        <p className="text-sm text-gray-500">
-          {label}
-        </p>
-
-        <span className="h-2 w-2 rounded-full bg-white/40" />
-
-      </div>
-
-      <p className="mt-3 text-3xl font-bold">
-        {value}
-      </p>
-
-      <p className="mt-1 text-xs text-gray-500">
-        {description}
-      </p>
-
     </div>
   );
 }

@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import Sidebar from "../components/Sidebar";
+import {
+  UploadCloud,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  RefreshCw,
+  Send,
+} from "lucide-react";
 
 type Device = {
   id: string;
@@ -15,6 +24,7 @@ type Transfer = {
   file_name: string;
   file_size: number;
   target_device_id: string;
+  target_device_name: string;
   status: string;
   created_at?: string;
 };
@@ -36,6 +46,7 @@ export default function Upload() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const [transfers, setTransfers] = useState<Transfer[]>([]);
 
@@ -45,10 +56,6 @@ export default function Upload() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
-  // =========================================================
-  // LOAD DEVICES
-  // =========================================================
 
   async function loadDevices() {
     try {
@@ -63,7 +70,6 @@ export default function Upload() {
 
       setDevices(deviceList);
 
-      // Automatically select first online device
       const firstOnline = deviceList.find(
         (device) => device.status === "online"
       );
@@ -78,10 +84,6 @@ export default function Upload() {
       setLoadingDevices(false);
     }
   }
-
-  // =========================================================
-  // LOAD TRANSFERS
-  // =========================================================
 
   async function loadTransfers() {
     try {
@@ -113,10 +115,6 @@ export default function Upload() {
     };
   }, []);
 
-  // =========================================================
-  // FILE SELECT
-  // =========================================================
-
   function handleFileChange(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
@@ -128,9 +126,16 @@ export default function Upload() {
     setSuccess("");
   }
 
-  // =========================================================
-  // UPLOAD
-  // =========================================================
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const droppedFile = e.dataTransfer.files?.[0] || null;
+    if (droppedFile) {
+      setFile(droppedFile);
+      setError("");
+      setSuccess("");
+    }
+  }
 
   async function handleUpload(
     event: React.FormEvent
@@ -141,7 +146,7 @@ export default function Upload() {
     setSuccess("");
 
     if (!file) {
-      setError("Please select an image.");
+      setError("Please select a file.");
       return;
     }
 
@@ -166,10 +171,9 @@ export default function Upload() {
       return;
     }
 
-    // Backend currently supports images up to 25 MB.
-    if (file.size > 25 * 1024 * 1024) {
+    if (file.size > 100 * 1024 * 1024) {
       setError(
-        "Image must be smaller than 25 MB."
+        "File must be smaller than 100 MB."
       );
       return;
     }
@@ -201,12 +205,11 @@ export default function Upload() {
       );
 
       setSuccess(
-        `"${response.data.file_name}" sent to ${targetDevice.name}.`
+        `"${response.data.file_name}" queued for delivery to ${targetDevice.name}.`
       );
 
       setFile(null);
 
-      // Reset file input
       const input =
         document.getElementById(
           "photo-upload"
@@ -230,303 +233,274 @@ export default function Upload() {
     }
   }
 
-  // =========================================================
-  // STATUS STYLE
-  // =========================================================
-
-  function getStatusClass(status: string) {
+  function getStatusBadge(status: string) {
     switch (status) {
       case "completed":
-        return "bg-green-500/10 text-green-400";
-
+        return (
+          <span className="flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
+            <CheckCircle2 className="h-3 w-3" />
+            Completed
+          </span>
+        );
       case "transferring":
-        return "bg-blue-500/10 text-blue-400";
-
+        return (
+          <span className="flex items-center gap-1 rounded-md bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-[11px] font-medium text-blue-400 animate-pulse">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Transferring
+          </span>
+        );
       case "pending":
-        return "bg-yellow-500/10 text-yellow-400";
-
+        return (
+          <span className="flex items-center gap-1 rounded-md bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] font-medium text-amber-400">
+            <Clock className="h-3 w-3" />
+            Pending Agent
+          </span>
+        );
       case "failed":
-        return "bg-red-500/10 text-red-400";
-
+        return (
+          <span className="flex items-center gap-1 rounded-md bg-red-500/10 border border-red-500/20 px-2.5 py-1 text-[11px] font-medium text-red-400">
+            <AlertCircle className="h-3 w-3" />
+            Failed
+          </span>
+        );
       default:
-        return "bg-gray-500/10 text-gray-400";
+        return (
+          <span className="rounded-md bg-slate-800 px-2.5 py-1 text-[11px] text-slate-400">
+            {status}
+          </span>
+        );
     }
   }
 
-  // =========================================================
-  // RENDER
-  // =========================================================
-
   return (
-    <main className="min-h-screen bg-[#0f1115] px-6 py-10 text-white md:px-10">
-      <div className="mx-auto max-w-5xl">
+    <div className="page-bg flex min-h-screen text-slate-100">
+      <Sidebar />
 
-        {/* HEADER */}
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <main className="flex-1 p-6 md:p-10 md:ml-64">
+        <div className="relative z-10 mx-auto max-w-4xl animate-fadeIn">
+          {/* HEADER */}
           <div>
-            <Link
-              to="/"
-              className="text-sm text-gray-400 transition hover:text-white"
-            >
-              ← Back to Dashboard
-            </Link>
-
-            <h1 className="mt-5 text-3xl font-bold">
-              Upload to HomeMesh
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              Transfer File to Device
             </h1>
 
-            <p className="mt-2 text-gray-400">
-              Send a photo directly to one of
-              your connected devices.
+            <p className="mt-1 text-xs text-slate-400">
+              Directly push files from your browser to a target device agent.
             </p>
           </div>
-        </div>
 
-        {/* UPLOAD CARD */}
+          {/* UPLOAD CARD */}
+          <form
+            onSubmit={handleUpload}
+            className="mt-8 glass-card rounded-xl p-6 md:p-8"
+          >
+            {/* FILE DROP ZONE */}
+            <div>
+              <label
+                htmlFor="photo-upload"
+                className="text-xs font-medium uppercase tracking-wider text-slate-400"
+              >
+                1. Select File
+              </label>
 
-        <form
-          onSubmit={handleUpload}
-          className="mt-10 rounded-2xl border border-white/10 bg-[#171a21] p-6 md:p-8"
-        >
+              <div
+                className={`mt-2.5 rounded-xl border-2 border-dashed p-8 text-center transition-all duration-200 ${
+                  dragOver
+                    ? "border-blue-500/60 bg-blue-500/5"
+                    : "border-slate-700/80 bg-slate-900/40 hover:border-slate-600"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+              >
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  <UploadCloud className="h-5 w-5" />
+                </div>
 
-          {/* FILE */}
+                <p className="text-xs text-slate-400">
+                  Drag & drop your file here, or
+                </p>
 
-          <div>
-            <label
-              htmlFor="photo-upload"
-              className="text-sm font-medium text-gray-200"
+                <label
+                  htmlFor="photo-upload"
+                  className="mt-2 inline-block cursor-pointer rounded-lg bg-slate-800 px-3.5 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-700 hover:text-white border border-slate-700"
+                >
+                  Browse Files
+                </label>
+
+                <input
+                  id="photo-upload"
+                  type="file"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {file && (
+                  <div className="mt-4 inline-flex items-center gap-3 rounded-lg bg-slate-900 border border-slate-800 px-4 py-2.5 text-left">
+                    <FileText className="h-5 w-5 text-blue-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-white max-w-xs">
+                        {file.name}
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        {formatBytes(file.size)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* DEVICE */}
+            <div className="mt-6">
+              <label
+                htmlFor="target-device"
+                className="text-xs font-medium uppercase tracking-wider text-slate-400"
+              >
+                2. Target Device
+              </label>
+
+              {loadingDevices ? (
+                <div className="mt-2 flex h-10 items-center rounded-lg border border-slate-800 bg-slate-900 px-3.5 text-xs text-slate-400">
+                  <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin text-blue-400" />
+                  Loading available devices...
+                </div>
+              ) : (
+                <select
+                  id="target-device"
+                  value={selectedDevice}
+                  onChange={(event) =>
+                    setSelectedDevice(
+                      event.target.value
+                    )
+                  }
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-xs text-slate-100 outline-none transition focus:border-blue-500"
+                >
+                  <option value="">
+                    Select a device
+                  </option>
+
+                  {devices.map((device) => (
+                    <option
+                      key={device.id}
+                      value={device.id}
+                      disabled={
+                        device.status !== "online"
+                      }
+                    >
+                      {device.name}{" "}
+                      {device.status === "online"
+                        ? "(Online)"
+                        : `(${device.status})`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* ERROR */}
+            {error && (
+              <div className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400 animate-fadeIn">
+                {error}
+              </div>
+            )}
+
+            {/* SUCCESS */}
+            {success && (
+              <div className="mt-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-400 animate-fadeIn">
+                {success}
+              </div>
+            )}
+
+            {/* BUTTON */}
+            <button
+              type="submit"
+              disabled={
+                uploading ||
+                !file ||
+                !selectedDevice
+              }
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Select Photo
-            </label>
+              {uploading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Sending File...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send File to Device Agent
+                </>
+              )}
+            </button>
 
-            <div className="mt-3 rounded-xl border border-dashed border-white/20 bg-[#111318] p-6">
-              <input
-                id="photo-upload"
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff"
-                onChange={handleFileChange}
-                className="block w-full text-sm text-gray-400 file:mr-4 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-black hover:file:bg-gray-200"
-              />
+          </form>
 
-              {file && (
-                <div className="mt-4 rounded-lg bg-white/5 p-4">
-                  <p className="truncate text-sm font-medium">
-                    {file.name}
-                  </p>
+          {/* TRANSFERS */}
+          <section className="mt-10 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold tracking-tight text-white">
+                  Transfer Activity
+                </h2>
 
-                  <p className="mt-1 text-xs text-gray-500">
-                    {formatBytes(file.size)}
-                  </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Recent files sent across your HomeMesh nodes
+                </p>
+              </div>
+
+              {loadingTransfers && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-400" />
+                  Refreshing
                 </div>
               )}
             </div>
-          </div>
 
-          {/* DEVICE */}
-
-          <div className="mt-7">
-            <label
-              htmlFor="target-device"
-              className="text-sm font-medium text-gray-200"
-            >
-              Store on Device
-            </label>
-
-            {loadingDevices ? (
-              <div className="mt-3 rounded-xl border border-white/10 bg-[#111318] p-4 text-sm text-gray-500">
-                Loading devices...
-              </div>
-            ) : (
-              <select
-                id="target-device"
-                value={selectedDevice}
-                onChange={(event) =>
-                  setSelectedDevice(
-                    event.target.value
-                  )
-                }
-                className="mt-3 w-full rounded-xl border border-white/10 bg-[#111318] px-4 py-3 text-sm text-white outline-none transition focus:border-white/30"
-              >
-                <option value="">
-                  Select a device
-                </option>
-
-                {devices.map((device) => (
-                  <option
-                    key={device.id}
-                    value={device.id}
-                    disabled={
-                      device.status !== "online"
-                    }
-                  >
-                    {device.name}{" "}
-                    {device.status === "online"
-                      ? "• Online"
-                      : `• ${device.status}`}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* SELECTED DEVICE */}
-
-          {selectedDevice && (
-            <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              {(() => {
-                const device =
-                  devices.find(
-                    (item) =>
-                      item.id === selectedDevice
-                  );
-
-                if (!device) return null;
-
-                return (
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-medium">
-                        {device.name}
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-500">
-                        {device.hostname ||
-                          "No hostname"}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs ${getStatusClass(
-                        device.status
-                      )}`}
+            <div className="mt-4 glass-card overflow-hidden rounded-xl">
+              {transfers.length === 0 ? (
+                <div className="p-8 text-center">
+                  <FileText className="mx-auto h-8 w-8 text-slate-500" />
+                  <p className="mt-2 text-xs text-slate-400">
+                    No active file transfers found.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-800/80">
+                  {transfers.map((transfer) => (
+                    <div
+                      key={transfer.id}
+                      className="flex flex-col gap-3 p-4 transition hover:bg-slate-900/40 md:flex-row md:items-center md:justify-between"
                     >
-                      ● {device.status}
-                    </span>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* ERROR */}
-
-          {error && (
-            <div className="mt-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          {/* SUCCESS */}
-
-          {success && (
-            <div className="mt-6 rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-400">
-              {success}
-            </div>
-          )}
-
-          {/* BUTTON */}
-
-          <button
-            type="submit"
-            disabled={
-              uploading ||
-              !file ||
-              !selectedDevice
-            }
-            className="mt-7 w-full rounded-xl bg-white px-5 py-3 font-medium text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {uploading
-              ? "Uploading..."
-              : "Send to Device"}
-          </button>
-
-        </form>
-
-        {/* TRANSFERS */}
-
-        <section className="mt-10">
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">
-                Recent Transfers
-              </h2>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Files moving through your
-                HomeMesh.
-              </p>
-            </div>
-
-            {loadingTransfers && (
-              <span className="text-xs text-gray-500">
-                Refreshing...
-              </span>
-            )}
-          </div>
-
-          <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-[#171a21]">
-
-            {transfers.length === 0 ? (
-              <div className="p-8 text-center text-sm text-gray-500">
-                No transfers yet.
-              </div>
-            ) : (
-              <div className="divide-y divide-white/5">
-
-                {transfers.map(
-                  (transfer) => {
-                    const device =
-                      devices.find(
-                        (item) =>
-                          item.id ===
-                          transfer.target_device_id
-                      );
-
-                    return (
-                      <div
-                        key={transfer.id}
-                        className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between"
-                      >
-
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-slate-400">
+                          <FileText className="h-4 w-4 text-blue-400" />
+                        </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
+                          <p className="truncate text-xs font-semibold text-white">
                             {transfer.file_name}
                           </p>
-
-                          <p className="mt-1 text-xs text-gray-500">
-                            {formatBytes(
-                              transfer.file_size
-                            )}
-
-                            {" • "}
-
-                            {device?.name ||
-                              "Unknown device"}
+                          <p className="mt-0.5 text-[11px] text-slate-400">
+                            {formatBytes(transfer.file_size)}
+                            {" · "}
+                            Target: {transfer.target_device_name || "Unknown device"}
                           </p>
                         </div>
-
-                        <span
-                          className={`w-fit rounded-full px-3 py-1 text-xs ${getStatusClass(
-                            transfer.status
-                          )}`}
-                        >
-                          {transfer.status}
-                        </span>
-
                       </div>
-                    );
-                  }
-                )}
 
-              </div>
-            )}
-
-          </div>
-        </section>
-
-      </div>
-    </main>
+                      {getStatusBadge(transfer.status)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
   );
 }

@@ -39,27 +39,27 @@ export default function MetricCharts({
   }));
 
   return (
-    <div className="mt-8 rounded-2xl border border-white/10 bg-[#171a21] p-6">
+    <div className="mt-8 rounded-xl border border-slate-800 bg-[#151c28] p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-base font-semibold text-white tracking-tight">
             Resource Usage
           </h2>
 
-          <p className="mt-1 text-sm text-gray-500">
-            CPU, memory and disk usage history
+          <p className="mt-0.5 text-xs text-slate-400">
+            CPU, memory and disk usage historical metrics
           </p>
         </div>
 
-        <div className="flex rounded-xl bg-[#0f1115] p-1">
+        <div className="flex rounded-lg bg-slate-900 p-1 border border-slate-800">
           {[5, 30, 60].map((minutes) => (
             <button
               key={minutes}
               onClick={() => onRangeChange(minutes)}
-              className={`rounded-lg px-3 py-2 text-xs transition ${
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 range === minutes
-                  ? "bg-white text-black"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-blue-600 text-white"
+                  : "text-slate-400 hover:text-slate-200"
               }`}
             >
               {minutes === 60
@@ -71,13 +71,13 @@ export default function MetricCharts({
       </div>
 
       {chartData.length === 0 ? (
-        <div className="flex h-80 items-center justify-center">
-          <p className="text-sm text-gray-500">
-            No metrics available for this time range.
+        <div className="flex h-72 items-center justify-center">
+          <p className="text-xs text-slate-500">
+            No metrics recorded for this time range.
           </p>
         </div>
       ) : (
-        <div className="mt-6 h-80 w-full">
+        <div className="mt-6 h-72 w-full">
           <ResponsiveContainer
             width="100%"
             height="100%"
@@ -85,13 +85,14 @@ export default function MetricCharts({
             <LineChart data={chartData}>
               <CartesianGrid
                 strokeDasharray="3 3"
-                strokeOpacity={0.1}
+                stroke="#2a374c"
+                strokeOpacity={0.4}
               />
 
               <XAxis
                 dataKey="time"
                 tick={{
-                  fill: "#6b7280",
+                  fill: "#94a3b8",
                   fontSize: 11,
                 }}
               />
@@ -99,7 +100,7 @@ export default function MetricCharts({
               <YAxis
                 domain={[0, 100]}
                 tick={{
-                  fill: "#6b7280",
+                  fill: "#94a3b8",
                   fontSize: 11,
                 }}
                 tickFormatter={(value) => `${value}%`}
@@ -107,10 +108,10 @@ export default function MetricCharts({
 
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#171a21",
-                  border:
-                    "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "12px",
+                  backgroundColor: "#0f172a",
+                  border: "1px solid #334155",
+                  borderRadius: "8px",
+                  color: "#f8fafc",
                 }}
                 formatter={(value) =>
                   `${Number(value).toFixed(1)}%`
@@ -122,6 +123,7 @@ export default function MetricCharts({
               <Line
                 type="monotone"
                 dataKey="CPU"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 dot={false}
               />
@@ -129,6 +131,7 @@ export default function MetricCharts({
               <Line
                 type="monotone"
                 dataKey="Memory"
+                stroke="#10b981"
                 strokeWidth={2}
                 dot={false}
               />
@@ -136,6 +139,7 @@ export default function MetricCharts({
               <Line
                 type="monotone"
                 dataKey="Disk"
+                stroke="#f59e0b"
                 strokeWidth={2}
                 dot={false}
               />
@@ -145,4 +149,4 @@ export default function MetricCharts({
       )}
     </div>
   );
-}
+}

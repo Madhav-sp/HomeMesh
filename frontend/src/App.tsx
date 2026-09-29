@@ -6,16 +6,17 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import Register from "./pages/Register";
 import Upload from "./pages/Upload";
+import Photos from "./pages/Photos";
+import Files from "./pages/Files";
+import Compute from "./pages/Compute";
+
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route
-  path="/register"
-  element={<Register />}
-/>
+          <Route path="/register" element={<Register />} />
           <Route
             path="/"
             element={
@@ -24,7 +25,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/devices/:deviceId"
             element={
@@ -38,6 +38,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Upload />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/photos"
+            element={
+              <ProtectedRoute>
+                <Photos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/files"
+            element={
+              <ProtectedRoute>
+                <Files />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/compute"
+            element={
+              <ProtectedRoute>
+                <Compute />
               </ProtectedRoute>
             }
           />

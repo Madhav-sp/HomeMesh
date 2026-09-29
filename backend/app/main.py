@@ -10,10 +10,20 @@ from app.modules.devices.background import offline_monitor
 from app.modules.devices.router import router as devices_router
 from app.modules.users.router import router as user_router
 from app.modules.devices.transfer_router import router as transfer_router
+from app.modules.devices.photo_router import router as photo_router
+from app.modules.devices.compute_router import router as compute_router
+
+from app.infrastructure.database.base import Base
+from app.infrastructure.database.session import engine
+from app.modules.devices.compute_model import ComputeJob
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting HomeMesh API")
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        logger.warning(f"Could not auto-create tables: {exc}")
 
     monitor_task = asyncio.create_task(
         offline_monitor()
@@ -54,6 +64,8 @@ app.include_router(api_router)
 app.include_router(user_router)
 app.include_router(devices_router)
 app.include_router(transfer_router)
+app.include_router(photo_router)
+app.include_router(compute_router)
 
 @app.get("/", tags=["Root"])
 async def root():

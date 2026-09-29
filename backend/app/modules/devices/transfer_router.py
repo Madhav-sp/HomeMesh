@@ -72,28 +72,13 @@ async def create_transfer(
             detail="Target device is not online.",
         )
 
-    # Only allow images for now
-    allowed_types = {
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "image/bmp",
-        "image/tiff",
-    }
-
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsupported image type.",
-        )
-
+    # Allow all common file types up to 100 MB
     os.makedirs(
         TRANSFER_STORAGE_ROOT,
         exist_ok=True,
     )
 
-    original_filename = file.filename or "photo"
+    original_filename = file.filename or "file"
 
     extension = os.path.splitext(
         original_filename
@@ -108,7 +93,7 @@ async def create_transfer(
         safe_filename,
     )
 
-    max_file_size = 25 * 1024 * 1024
+    max_file_size = 100 * 1024 * 1024
     total_size = 0
 
     try:
@@ -124,7 +109,7 @@ async def create_transfer(
                 if total_size > max_file_size:
                     raise HTTPException(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail="Image is larger than 25 MB.",
+                        detail="File is larger than 100 MB.",
                     )
 
                 output.write(chunk)
@@ -147,7 +132,7 @@ async def create_transfer(
             TRANSFER_STORAGE_ROOT,
         ),
         file_size=total_size,
-        mime_type=file.content_type,
+        mime_type=file.content_type or "application/octet-stream",
     )
 
     return {
@@ -166,6 +151,7 @@ async def create_transfer(
 
 @router.get("")
 def list_transfers(
+    device_id: UUID | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -174,12 +160,22 @@ def list_transfers(
         owner_id=current_user.id,
     )
 
+    if device_id:
+        transfers = [t for t in transfers if t.target_device_id == device_id]
+
+    devices_by_id = {
+        d.id: d.name
+        for d, _ in repository.get_by_owner(db=db, owner_id=current_user.id)
+    }
+
     return [
         {
             "id": transfer.id,
             "file_name": transfer.file_name,
             "file_size": transfer.file_size,
+            "mime_type": transfer.mime_type,
             "target_device_id": transfer.target_device_id,
+            "target_device_name": devices_by_id.get(transfer.target_device_id, "Unknown Device"),
             "status": transfer.status,
             "error_message": transfer.error_message,
             "created_at": transfer.created_at,

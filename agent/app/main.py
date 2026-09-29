@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import os
 
@@ -12,6 +13,9 @@ from app.client import (
     get_pending_transfers,
     download_transfer,
     complete_transfer,
+    get_pending_compute_jobs,
+    claim_compute_job,
+    complete_compute_job,
 )
 
 
@@ -291,6 +295,132 @@ async def transfer_sync_loop(
 
 
 # =========================================================
+# COMPUTE SYNC
+# HOMeMESH BACKEND → DEVICE COMPUTE WORKER
+# =========================================================
+
+COMPUTE_SYNC_INTERVAL = 5  # Check compute jobs every 5 seconds
+
+
+def execute_compute_job(job_type: str, payload_raw: str | None) -> tuple[str, dict | str, str | None]:
+    import json
+    import time
+    import hashlib
+    import platform
+    import psutil
+
+    payload = {}
+    if payload_raw:
+        try:
+            payload = json.loads(payload_raw) if isinstance(payload_raw, str) else payload_raw
+        except Exception:
+            payload = {"raw": payload_raw}
+
+    try:
+        if job_type == "ping":
+            return "completed", {"pong": True, "timestamp": time.time()}, None
+
+        elif job_type == "system_info":
+            info = {
+                "platform": platform.platform(),
+                "python_version": platform.python_version(),
+                "cpu_count_logical": psutil.cpu_count(logical=True),
+                "cpu_count_physical": psutil.cpu_count(logical=False),
+                "memory_total_gb": round(psutil.virtual_memory().total / (1024**3), 2),
+                "memory_available_gb": round(psutil.virtual_memory().available / (1024**3), 2),
+            }
+            return "completed", info, None
+
+        elif job_type == "prime_count":
+            n = int(payload.get("n", 100000))
+            start_time = time.time()
+
+            # Simple sieve of Eratosthenes
+            if n < 2:
+                count = 0
+            else:
+                sieve = [True] * (n + 1)
+                sieve[0] = sieve[1] = False
+                for p in range(2, int(n**0.5) + 1):
+                    if sieve[p]:
+                        for i in range(p * p, n + 1, p):
+                            sieve[i] = False
+                count = sum(sieve)
+
+            elapsed_ms = round((time.time() - start_time) * 1000, 2)
+            return "completed", {"n": n, "prime_count": count, "elapsed_ms": elapsed_ms}, None
+
+        elif job_type == "hash_calc":
+            text = str(payload.get("text", "HomeMesh Distributed Compute"))
+            algo = str(payload.get("algo", "sha256")).lower()
+
+            if algo == "md5":
+                hashed = hashlib.md5(text.encode("utf-8")).hexdigest()
+            elif algo == "sha512":
+                hashed = hashlib.sha512(text.encode("utf-8")).hexdigest()
+            else:
+                hashed = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+            return "completed", {"algo": algo, "input": text, "hash": hashed}, None
+
+        else:
+            # Generic echo task
+            return "completed", {"job_type": job_type, "input": payload, "status": "processed"}, None
+
+    except Exception as exc:
+        return "failed", None, str(exc)
+
+
+async def compute_worker_loop(
+    device_id: str,
+    device_token: str,
+):
+    print("Compute worker loop started")
+
+    while True:
+        try:
+            jobs = await get_pending_compute_jobs(
+                device_id=device_id,
+                device_token=device_token,
+            )
+
+            for job in jobs:
+                job_id = str(job["id"])
+                job_type = job["job_type"]
+                payload_raw = job.get("payload")
+
+                print(f"\nProcessing compute job {job_id} (type: {job_type})...")
+
+                try:
+                    await claim_compute_job(
+                        device_id=device_id,
+                        device_token=device_token,
+                        job_id=job_id,
+                    )
+
+                    status, result, error_msg = execute_compute_job(job_type, payload_raw)
+
+                    await complete_compute_job(
+                        device_id=device_id,
+                        device_token=device_token,
+                        job_id=job_id,
+                        status=status,
+                        result=result,
+                        error_message=error_msg,
+                    )
+
+                    print(f"Compute job {job_id} finished with status '{status}'")
+
+                except Exception as exc:
+                    print(f"Error executing compute job {job_id}: {exc}")
+
+        except Exception as exc:
+            print(f"Compute worker loop error: {exc}")
+
+        await asyncio.sleep(COMPUTE_SYNC_INTERVAL)
+
+
+# =========================================================
 # MAIN
 # =========================================================
 
@@ -337,6 +467,12 @@ async def main():
 
         # Backend → device transfer synchronization
         transfer_sync_loop(
+            device_id=device_id,
+            device_token=device_token,
+        ),
+
+        # Distributed compute worker
+        compute_worker_loop(
             device_id=device_id,
             device_token=device_token,
         ),

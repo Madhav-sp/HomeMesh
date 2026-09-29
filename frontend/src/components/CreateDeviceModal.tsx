@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../api/client";
+import { X, Laptop, Plus } from "lucide-react";
 
 type Props = {
   onClose: () => void;
@@ -42,30 +43,33 @@ export default function CreateDeviceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#171a21] p-6 text-white">
-        
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-xl border border-slate-700 bg-[#0f172a] p-6 text-slate-100 shadow-2xl animate-fadeIn">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">
-            Add Device
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <Laptop className="h-4 w-4" />
+            </div>
+            <h2 className="text-lg font-semibold text-white">
+              Add New Device
+            </h2>
+          </div>
 
           <button
             onClick={onClose}
             disabled={loading}
-            className="text-gray-500 hover:text-white"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
           >
-            ✕
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="mt-3 text-sm text-gray-400">
-          Give your device a name. You will pair the HomeMesh
-          Agent in the next step.
+        <p className="mt-3 text-xs text-slate-400">
+          Enter a friendly name for your device (e.g., "Workstation", "Home PC"). You will receive a pairing code in the next step.
         </p>
 
-        <div className="mt-6">
-          <label className="text-sm text-gray-400">
+        <div className="mt-5">
+          <label className="text-xs font-medium uppercase tracking-wider text-slate-400">
             Device Name
           </label>
 
@@ -78,23 +82,23 @@ export default function CreateDeviceModal({
                 createDevice();
               }
             }}
-            placeholder="My PC"
+            placeholder="e.g. Madhav-Desktop"
             disabled={loading}
-            className="mt-2 w-full rounded-xl border border-white/10 bg-[#0f1115] px-4 py-3 text-white outline-none placeholder:text-gray-600 focus:border-white/30"
+            className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           />
         </div>
 
         {error && (
-          <p className="mt-4 text-sm text-red-400">
+          <p className="mt-3 text-xs font-medium text-red-400">
             {error}
           </p>
         )}
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-6 flex justify-end gap-2.5">
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 rounded-xl border border-white/10 px-4 py-3 font-medium text-gray-300 hover:bg-white/5"
+            className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors"
           >
             Cancel
           </button>
@@ -102,12 +106,13 @@ export default function CreateDeviceModal({
           <button
             onClick={createDevice}
             disabled={loading || !name.trim()}
-            className="flex-1 rounded-xl bg-white px-4 py-3 font-semibold text-black hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
           >
+            <Plus className="h-4 w-4" />
             {loading ? "Creating..." : "Create Device"}
           </button>
         </div>
       </div>
     </div>
   );
-}
+}

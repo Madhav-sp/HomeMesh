@@ -181,6 +181,23 @@ def replace_device_storage(
 # DEVICE PHOTOS
 # =========================================================
 
+def _mtime_changed(existing_mtime, incoming_mtime) -> bool:
+    if existing_mtime is None and incoming_mtime is None:
+        return False
+    if existing_mtime is None or incoming_mtime is None:
+        return True
+    try:
+        ex_str = existing_mtime.isoformat()[:19]
+        inc_str = (
+            incoming_mtime.isoformat()[:19]
+            if hasattr(incoming_mtime, "isoformat")
+            else str(incoming_mtime)[:19]
+        )
+        return ex_str != inc_str
+    except Exception:
+        return False
+
+
 def sync_device_photos(
     db: Session,
     device_id: UUID,
@@ -223,11 +240,8 @@ def sync_device_photos(
 
         if existing:
 
-            changed = (
+            size_changed = (
                 existing.file_size != item["file_size"]
-                or existing.modified_at != item.get(
-                    "modified_at"
-                )
             )
 
             existing.file_name = item["file_name"]
@@ -238,14 +252,14 @@ def sync_device_photos(
             )
 
             # -------------------------------------------------
-            # Only clear backend storage when the actual file
-            # has changed AND this is a normal device photo.
-            #
-            # Transferred photos already exist on the device,
-            # so they don't need to be uploaded again.
+            # Only clear backend storage when file_size has
+            # actually changed AND this is a normal photo.
+            # We rely on file_size rather than modified_at
+            # because the timestamp comparison is unreliable
+            # across timezone-aware/naive datetime formats.
             # -------------------------------------------------
 
-            if changed and not item.get(
+            if size_changed and not item.get(
                 "is_transferred",
                 False,
             ):
@@ -266,18 +280,7 @@ def sync_device_photos(
                 file_size=item["file_size"],
                 mime_type=item.get("mime_type"),
                 modified_at=item.get("modified_at"),
-
-                # Transferred files already exist on the
-                # target device. Normal photos need their
-                # bytes uploaded to backend storage.
-                storage_path=(
-                    None
-                    if item.get(
-                        "is_transferred",
-                        False,
-                    )
-                    else None
-                ),
+                storage_path=None,
             )
 
             db.add(photo)
@@ -306,6 +309,39 @@ def get_device_photos(
             )
         )
     )
+
+
+def get_photo_by_id(
+    db: Session,
+    photo_id: UUID,
+) -> DevicePhoto | None:
+    return db.scalar(
+        select(DevicePhoto).where(DevicePhoto.id == photo_id)
+    )
+
+
+def get_all_user_photos(
+    db: Session,
+    owner_id: UUID,
+    device_id: UUID | None = None,
+) -> list[tuple[DevicePhoto, Device]]:
+    query = (
+        select(DevicePhoto, Device)
+        .join(Device, DevicePhoto.device_id == Device.id)
+        .where(Device.owner_id == owner_id)
+    )
+    if device_id:
+        query = query.where(DevicePhoto.device_id == device_id)
+    query = query.order_by(DevicePhoto.created_at.desc())
+    return list(db.execute(query).tuples())
+
+
+def delete_photo(
+    db: Session,
+    photo: DevicePhoto,
+) -> None:
+    db.delete(photo)
+    db.commit()
 
 
 # =========================================================

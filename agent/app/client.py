@@ -1,3 +1,4 @@
+from __future__ import annotations
 import httpx
 
 from app.config import API_URL
@@ -246,4 +247,50 @@ async def complete_transfer(
 
         response.raise_for_status()
 
+        return response.json()
+
+
+async def get_pending_compute_jobs(
+    device_id: str,
+    device_token: str,
+) -> list:
+    url = f"{API_URL}/api/v1/compute/jobs/pending"
+    headers = {"Authorization": f"Bearer {device_token}"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(url, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+
+async def claim_compute_job(
+    device_id: str,
+    device_token: str,
+    job_id: str,
+) -> dict:
+    url = f"{API_URL}/api/v1/compute/jobs/{job_id}/claim"
+    headers = {"Authorization": f"Bearer {device_token}"}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+
+async def complete_compute_job(
+    device_id: str,
+    device_token: str,
+    job_id: str,
+    status: str,
+    result: dict | str | None = None,
+    error_message: str | None = None,
+) -> dict:
+    url = f"{API_URL}/api/v1/compute/jobs/{job_id}/complete"
+    headers = {"Authorization": f"Bearer {device_token}"}
+    payload = {
+        "status": status,
+        "result": result,
+        "error_message": error_message,
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
         return response.json()
